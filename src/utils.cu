@@ -10,7 +10,6 @@ void gpuAssert(cudaError_t code, const char *file, int line, bool abort)
     }
 }
 
-/* Function to get the actual time*/
 double gettime(void)
 {
     struct timespec ts;
@@ -18,7 +17,6 @@ double gettime(void)
     return (ts.tv_sec + (double)ts.tv_nsec / 1e9);
 }
 
-/* Initialize array data */
 void init_array(long int *data, unsigned long nitems)
 {
     long int temp;
@@ -39,7 +37,6 @@ void init_array(long int *data, unsigned long nitems)
     }
 }
 
-/* Function to print an array */
 __host__ __device__ void print_array(long int *data, unsigned long size)
 {
     for (unsigned long i = 0; i < size; i++)
@@ -47,7 +44,6 @@ __host__ __device__ void print_array(long int *data, unsigned long size)
     printf("\n");
 }
 
-/* Function to check if results is an ordered array */
 int check_result(long int *results, unsigned long nitems)
 {
     for (unsigned long i = 0; i < nitems - 1; i++)
