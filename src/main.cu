@@ -8,20 +8,12 @@
 #define MAXTHREADSPERBLOCK 512
 #define MAXBLOCKS 65535
 
-__global__ void sort_kernel(long int *data, unsigned long n, unsigned long offset, const unsigned long n_threads)
+__global__ void radix_sort_kernel(long int *data, unsigned long n, unsigned offset, const unsigned long n_threads)
 {
-    // extern __shared__ long int sdata[];
     const unsigned long tid = blockIdx.x * blockDim.x + threadIdx.x;
     unsigned long start = tid * offset;
-    unsigned long end = start + offset - 1;
-
-    unsigned long num_merge = 0;
-    unsigned left, mid, right, offset_merge;
     unsigned old_offset;
-    unsigned temp_n_threads = n_threads;
-    unsigned long num_threads_merge = 0;
-
-    unsigned long i, j;
+    unsigned thread;
 
     // Compute new start, end and offset for the thread, computing the offset of precedent threads
     if (tid != 0)
@@ -35,11 +27,60 @@ __global__ void sort_kernel(long int *data, unsigned long n, unsigned long offse
         {
             start = 0;
             old_offset = offset;
-            for (i = 1; i < tid; i++)
+            for (thread = 1; thread < tid; thread++)
             {
-                if ((n - old_offset) > 0) // MORE THREAD THAT NEEDED
+                if ((n - old_offset) > 0) // MORE THREAD THAN NEEDED
                 {
-                    old_offset += (n - old_offset + (n_threads - i) - 1) / (n_threads - i);
+                    old_offset += (n - old_offset + (n_threads - thread) - 1) / (n_threads - thread);
+                }
+                else
+                {
+                    break;
+                }
+            }
+            start = old_offset;
+        }
+        offset = (n - start + (n_threads - tid) - 1) / (n_threads - tid);
+    }
+
+    if ((n - old_offset) > 0) // MORE THREAD THAN NEEDED
+    {
+        radix_sort(&data[start], offset);
+    }
+}
+
+__global__ void sort_kernel(long int *data, unsigned long n, unsigned offset, const unsigned long n_threads)
+{
+    // extern __shared__ long int sdata[];
+    const unsigned long tid = blockIdx.x * blockDim.x + threadIdx.x;
+    unsigned thread = 0;
+    unsigned long start = tid * offset;
+    unsigned long end = start + offset - 1;
+    unsigned level_merge = 0;
+    unsigned levels_merge = 0;
+    unsigned left, mid, right, offset_merge;
+    unsigned old_offset;
+    unsigned temp_n_threads = n_threads;
+    unsigned threads_to_merge = 0;
+   
+    // unsigned long i, j;
+
+    // Compute new start, end and offset for the thread, computing the offset of precedent threads
+    if (tid != 0)
+    {
+        // Compute old offset in a recursive way, in order to compute the start for the thread
+        if (tid - 1 == 0)
+        {
+            start = tid * offset;
+        }
+        else
+        {
+            old_offset = offset;
+            for (thread = 1; thread < tid; thread++)
+            {
+                if ((n - old_offset) > 0) // MORE THREAD THAN NEEDED
+                {
+                    old_offset += (n - old_offset + (n_threads - thread) - 1) / (n_threads - thread);
                 }
                 else
                 {
@@ -52,7 +93,7 @@ __global__ void sort_kernel(long int *data, unsigned long n, unsigned long offse
         end = start + offset - 1;
     }
 
-    if ((n - old_offset) > 0) // MORE THREAD THAT NEEDED
+    if ((n - old_offset) > 0) // MORE THREAD THAN NEEDED
     {
 
         // Log(num_threads)/Log(2) == Log_2(num_threads)
@@ -60,58 +101,58 @@ __global__ void sort_kernel(long int *data, unsigned long n, unsigned long offse
         while (temp_n_threads > 1)
         {
             temp_n_threads /= 2;
-            num_merge++;
+            levels_merge++;
         }
 
         // printf("Sono il thread n.ro %lu con last n.ro %lu\n", start, end);
 
         // // Load data into shared memory
-        // for (i = start; i < end + 1; i++)
+        // for (long i = start; i < end + 1; i++)
         // {
         //     sdata[i] = data[i];
         // }
 
         radix_sort(&data[start], offset);
         __syncthreads();
-        // for (int i = start; i < start + offset && i < n; i++)
+        // for (long i = start; i < start + offset && i < n; i++)
         // {
         //     printf("%lu:%li\n", i, sdata[i]);
         // }
         // __syncthreads();
 
         // Merge the sorted array
-        for (i = 1; i <= num_merge; i++)
+        for (level_merge = 1; level_merge <= levels_merge; level_merge++)
         {
-            if (i == 1)
+            if (level_merge == 1)
             {
                 mid = end;
             }
 
-            power(2, i, &num_threads_merge);
+            power(2, level_merge, &threads_to_merge);
 
             __syncthreads();
 
-            if ((tid % num_threads_merge) == 0)
+            if ((tid % threads_to_merge) == 0)
             {
                 left = start;
                 offset_merge = offset;
 
                 // printf("OFFSET: TID: %lu-%lu\n", tid, offset_merge);
-                for (j = tid + 1; j < tid + num_threads_merge; j++)
+                for (thread = tid + 1; thread < tid + threads_to_merge; thread++)
                 {
-                    offset_merge += (n - start - offset_merge + (n_threads - j) - 1) / (n_threads - j);
+                    offset_merge += (n - start - offset_merge + (n_threads - thread) - 1) / (n_threads - thread);
                     // printf("OFFSET: TID: %lu-%lu\n", tid, offset_merge);
                 }
 
                 right = left + offset_merge - 1;
 
                 merge(data, left, mid, right);
-                printf("TID: %lu - STEP: %lu\n",tid, i);
+                // printf("TID: %lu - STEP: %lu\n", tid, level_merge);
                 // printf("LEFT: TID: %lu-%lu\n", tid, left);
                 // printf("MID: TID: %lu-%lu\n", tid, mid);
                 // printf("RIGHT: TID: %lu-%lu\n", tid, right);
                 // printf("OFFSET: TID: %lu-%lu\n", tid, offset_merge);
-                // for (int k = start; k < left + offset_merge; k++)
+                // for (long k = start; k < left + offset_merge; k++)
                 // {
                 //     printf("%lu:%li\n", k, sdata[k]);
                 // }
@@ -124,7 +165,7 @@ __global__ void sort_kernel(long int *data, unsigned long n, unsigned long offse
         }
 
         // // Write sorted data back to global memory
-        // for (i = start; i < start + offset && i < n; i++)
+        // for (long i = start; i < start + offset && i < n; i++)
         // {
         //     data[i] = sdata[i];
         // }
@@ -136,7 +177,7 @@ int main(int argc, char *argv[])
     unsigned long N, first, last;
     long int *a, *dev_a;
     unsigned long num_threads_per_block, num_blocks, num_total_threads;
-    unsigned long partition_size = 50; // TODO: TEMPORARY VALUE
+    unsigned partition_size = 50; // TODO: TEMPORARY VALUE
     double tstart, tstop;
 
     if (argc > 1)
@@ -207,7 +248,7 @@ int main(int argc, char *argv[])
         else
         {
             num_threads_per_block = MAXTHREADSPERBLOCK;
-            num_blocks = ceil(num_total_threads / (float)num_threads_per_block); //NOT SORTING WITH 8 BLOCKS (N = 179201)
+            num_blocks = ceil(num_total_threads / (float)num_threads_per_block);
 
             if (num_blocks > MAXBLOCKS)
             {
@@ -238,7 +279,19 @@ int main(int argc, char *argv[])
     printf("NUM THREAD PER BLOCK: %lu\n", num_threads_per_block);
     tstart = gettime();
     // sort_kernel<<<gridSize, blockSize, size>>>(dev_a, N, partition_size, num_total_threads); //problem with size shared memory
-    sort_kernel<<<gridSize, blockSize>>>(dev_a, N, partition_size, num_total_threads); // GLOBAL MEMORY WITH BLOCKS AND THREAD
+
+    if (num_blocks == 1)
+    {
+        sort_kernel<<<gridSize, blockSize>>>(dev_a, N, partition_size, num_total_threads); // GLOBAL MEMORY
+    }
+    else // since I need that the data is ordered before merge //TODO: PROBLEM WITH 25601
+    {
+        radix_sort_kernel<<<gridSize, blockSize>>>(dev_a, N, partition_size, num_total_threads); // GLOBAL MEMORY; TODO: here I could use shared memory with size equal to partition_size
+        cudaDeviceSynchronize();
+        // merge_kernel<<<1, blockSize>>>(dev_a, N, partition_size, num_threads_per_block); // GLOBAL MEMORY
+        cudaDeviceSynchronize();
+    }
+
     tstop = gettime();
     gpuErrchk(cudaPeekAtLastError());
     gpuErrchk(cudaMemcpy(a, dev_a, size, cudaMemcpyDeviceToHost));
