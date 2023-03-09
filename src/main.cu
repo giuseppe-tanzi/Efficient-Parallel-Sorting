@@ -17,47 +17,6 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
     }
 }
 
-__global__ void radix_sort_kernel(long int *data, unsigned long n, unsigned offset, const unsigned long n_threads)
-{
-    const unsigned tid = blockIdx.x * blockDim.x + threadIdx.x;
-    unsigned long start = tid * offset;
-    unsigned old_offset;
-    unsigned thread;
-
-    // Compute new start, end and offset for the thread, computing the offset of precedent threads
-    if (tid != 0)
-    {
-        // Compute old offset in a recursive way, in order to compute the start for the thread
-        if (tid - 1 == 0)
-        {
-            start = tid * offset;
-        }
-        else
-        {
-            start = 0;
-            old_offset = offset;
-            for (thread = 1; thread < tid; thread++)
-            {
-                if ((n - old_offset) > 0) // MORE THREAD THAN NEEDED
-                {
-                    old_offset += (n - old_offset + (n_threads - thread) - 1) / (n_threads - thread);
-                }
-                else
-                {
-                    break;
-                }
-            }
-            start = old_offset;
-        }
-        offset = (n - start + (n_threads - tid) - 1) / (n_threads - tid);
-    }
-
-    if ((n - old_offset) > 0) // MORE THREAD THAN NEEDED
-    {
-        radix_sort(&data[start], offset);
-    }
-}
-
 __global__ void sort_kernel(long int *data, unsigned long n, unsigned offset, const unsigned long n_threads)
 {
     // extern __shared__ long int sdata[];
