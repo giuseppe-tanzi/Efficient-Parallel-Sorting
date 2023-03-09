@@ -9,11 +9,17 @@
 #define MAXBLOCKS 65535
 
 // Useful to check errors in the cuda kernels
-#define cudaHandleError(ans) {gpuAssert((ans), __FILE__, __LINE__); }
-inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true) {
-    if (code != cudaSuccess) {
+#define cudaHandleError(ans)                  \
+    {                                         \
+        gpuAssert((ans), __FILE__, __LINE__); \
+    }
+inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort = true)
+{
+    if (code != cudaSuccess)
+    {
         fprintf(stderr, "GPUerror: %s\nCode: %d\nFile: %s\nLine: %d\n", cudaGetErrorString(code), code, file, line);
-        if (abort) exit(code);
+        if (abort)
+            exit(code);
     }
 }
 
@@ -28,7 +34,7 @@ __global__ void sort_kernel(long int *data, unsigned long n, unsigned offset, co
     unsigned levels_merge = 0;
     unsigned left, mid, right, offset_merge;
     unsigned old_offset;
-    unsigned temp_n_threads = n_threads;
+    unsigned long temp_n_threads = n_threads;
     unsigned threads_to_merge = 0;
 
     // Compute new start, end and offset for the thread, computing the offset of precedent threads
@@ -126,6 +132,77 @@ __global__ void sort_kernel(long int *data, unsigned long n, unsigned offset, co
         //     data[i] = sdata[i];
         // }
     }
+}
+
+unsigned long get_list_to_merge(unsigned long n, unsigned partition, unsigned num_threads)
+{
+    unsigned i;
+    unsigned long offset = partition;
+    unsigned long list_to_merge = 1;
+
+    for (i = 1; i < num_threads; i++)
+    {
+        if ((n - offset) > 0) // MORE THREAD THAN NEEDED
+        {
+            offset += (n - offset + (num_threads - i) - 1) / (num_threads - i);
+            list_to_merge++;
+        }
+        else
+        {
+            break;
+        }
+    }
+    return list_to_merge;
+}
+
+void get_start_and_size(unsigned long num_block, unsigned long n, unsigned partition, unsigned total_threads, unsigned long *values)
+{
+    int start = 0;
+    int size = 1;
+    unsigned long thread;
+    unsigned long precedent_threads = num_block * MAXTHREADSPERBLOCK;
+    // unsigned long total_threads = (num_block + 1) * MAXTHREADSPERBLOCK;
+    unsigned start_v = 0;
+    unsigned size_v = 0;
+
+    if (precedent_threads == 0)
+    {
+        start_v = 0;
+    }
+    else
+    {
+        // Compute start in a recursive way
+        for (thread = 0; thread < precedent_threads; thread++)
+        {
+            if ((n - size_v) > 0) // MORE THREAD THAN NEEDED
+            {
+                size_v = (n - start_v + (total_threads - thread) - 1) / (total_threads - thread);
+                start_v += size_v;
+            }
+            else
+            {
+                break;
+            }
+        }
+    }
+
+    values[start] = start_v;
+
+    size_v = start_v;
+    // Compute size in a recursive way
+    for (thread = precedent_threads; thread < (num_block + 1) * MAXTHREADSPERBLOCK; thread++) //TODO: DEBUGGATO E' GIUSTO!
+    {
+        if ((n - size_v) > 0) // MORE THREAD THAN NEEDED
+        {
+            size_v += (n - size_v + (total_threads - thread) - 1) / (total_threads - thread);
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    values[size] = size_v - start_v;
 }
 
 int main(int argc, char *argv[])
@@ -242,10 +319,37 @@ int main(int argc, char *argv[])
     }
     else // since I need that the data is ordered before merge //TODO: PROBLEM WITH 25601
     {
-        // radix_sort_kernel<<<gridSize, blockSize>>>(dev_a, N, partition_size, num_total_threads); // GLOBAL MEMORY; TODO: here I could use shared memory with size equal to partition_size
-        cudaDeviceSynchronize();
-        sort_kernel<<<gridSize, blockSize>>>(dev_a, N, partition_size, num_total_threads); // GLOBAL MEMORY TODO: WRONG!
-        cudaDeviceSynchronize();
+        /*
+        STEPS:
+        0. Call the radix sort on the array - DONE
+        1. Compute the numbers of list to merge - DONE
+        2. Write a for-loop in which you call each block on a different portion of the array 
+        3. cudaDeviceSynchronize();
+        3. Call a single block to merge the entire array on the different results of the different blocks
+        */
+
+        radix_sort_kernel<<<gridSize, blockSize>>>(dev_a, N, partition_size, num_total_threads); // GLOBAL MEMORY; TODO: here I could use shared memory with size equal to partition_size
+
+        unsigned long n_merge = ceil(get_list_to_merge(N, partition_size, num_total_threads) / 2);
+        unsigned long n_blocks_needed = ceil(n_merge / MAXTHREADSPERBLOCK);
+
+        unsigned long **block_dimension;
+        block_dimension = (unsigned long **)malloc(n_merge * sizeof(unsigned long *));
+        for (int i = 0; i < n_merge; i++)
+        {
+            block_dimension[i] = (unsigned long *)malloc(2 * sizeof(unsigned long));
+        }
+
+        for (int num_block = 0; num_block < n_blocks_needed; num_block++) // TODO: TEST WITH N=25601
+        {
+            // Compute the size of dev_a and where to start
+            get_start_and_size(num_block, N, partition_size, n_blocks_needed * MAXTHREADSPERBLOCK, block_dimension[num_block]);
+
+            // IN QUESTO KERNEL BISOGNA RISALIRE ALLE LISTE ORIGINALI ORDINATE DAL RADIX SORT AFFINCHE' TUTTO FUNZIONI
+            // merge_kernel<<<1, blockSize>>>(dev_a[starts[num_block]], sizes[num_block]], partition_size(?), num_threads_per_block); // GLOBAL MEMORY;
+        }
+
+        // sort_kernel<<<gridSize, blockSize>>>(dev_a, N, partition_size, num_total_threads); // GLOBAL MEMORY TODO: WRONG!
     }
 
     tstop = gettime();
