@@ -7,6 +7,7 @@ NVCC=nvcc
 # Define the directories for source and object files
 SRCDIR=src
 OBJDIR=obj
+MKDIR_P = mkdir -p $(OBJDIR)
 
 # Define the source files to compile
 SOURCES=$(wildcard $(SRCDIR)/*.cu)
@@ -16,6 +17,7 @@ OBJECTS=$(SOURCES:$(SRCDIR)/%.cu=$(OBJDIR)/%.o)
 
 # Define the rule for compiling source files to object files
 $(OBJDIR)/%.o: $(SRCDIR)/%.cu
+	$(MKDIR_P)
 	$(NVCC) -dc -o $@ $<
 
 # Define the linking rule
@@ -24,4 +26,4 @@ main.out: $(OBJECTS)
 
 # Define the "clean" rule
 clean:
-	rm -f $(OBJECTS)
+	rm -rf $(OBJDIR)
