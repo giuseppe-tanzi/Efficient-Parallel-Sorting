@@ -8,9 +8,18 @@
 #define MAXTHREADSPERBLOCK 512
 #define MAXBLOCKS 65535
 
+// Useful to check errors in the cuda kernels
+#define cudaHandleError(ans) {gpuAssert((ans), __FILE__, __LINE__); }
+inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true) {
+    if (code != cudaSuccess) {
+        fprintf(stderr, "GPUerror: %s\nCode: %d\nFile: %s\nLine: %d\n", cudaGetErrorString(code), code, file, line);
+        if (abort) exit(code);
+    }
+}
+
 __global__ void radix_sort_kernel(long int *data, unsigned long n, unsigned offset, const unsigned long n_threads)
 {
-    const unsigned long tid = blockIdx.x * blockDim.x + threadIdx.x;
+    const unsigned tid = blockIdx.x * blockDim.x + threadIdx.x;
     unsigned long start = tid * offset;
     unsigned old_offset;
     unsigned thread;
@@ -52,7 +61,7 @@ __global__ void radix_sort_kernel(long int *data, unsigned long n, unsigned offs
 __global__ void sort_kernel(long int *data, unsigned long n, unsigned offset, const unsigned long n_threads)
 {
     // extern __shared__ long int sdata[];
-    const unsigned long tid = blockIdx.x * blockDim.x + threadIdx.x;
+    const unsigned tid = blockIdx.x * blockDim.x + threadIdx.x;
     unsigned thread = 0;
     unsigned long start = tid * offset;
     unsigned long end = start + offset - 1;
@@ -62,8 +71,6 @@ __global__ void sort_kernel(long int *data, unsigned long n, unsigned offset, co
     unsigned old_offset;
     unsigned temp_n_threads = n_threads;
     unsigned threads_to_merge = 0;
-   
-    // unsigned long i, j;
 
     // Compute new start, end and offset for the thread, computing the offset of precedent threads
     if (tid != 0)
@@ -104,7 +111,7 @@ __global__ void sort_kernel(long int *data, unsigned long n, unsigned offset, co
             levels_merge++;
         }
 
-        // printf("Sono il thread n.ro %lu con last n.ro %lu\n", start, end);
+        // printf("Sono il thread n.ro %d con last n.ro %lu\n", tid, end);
 
         // // Load data into shared memory
         // for (long i = start; i < end + 1; i++)
@@ -114,11 +121,6 @@ __global__ void sort_kernel(long int *data, unsigned long n, unsigned offset, co
 
         radix_sort(&data[start], offset);
         __syncthreads();
-        // for (long i = start; i < start + offset && i < n; i++)
-        // {
-        //     printf("%lu:%li\n", i, sdata[i]);
-        // }
-        // __syncthreads();
 
         // Merge the sorted array
         for (level_merge = 1; level_merge <= levels_merge; level_merge++)
@@ -130,24 +132,19 @@ __global__ void sort_kernel(long int *data, unsigned long n, unsigned offset, co
 
             power(2, level_merge, &threads_to_merge);
 
-            __syncthreads();
-
             if ((tid % threads_to_merge) == 0)
             {
                 left = start;
                 offset_merge = offset;
 
-                // printf("OFFSET: TID: %lu-%lu\n", tid, offset_merge);
                 for (thread = tid + 1; thread < tid + threads_to_merge; thread++)
                 {
                     offset_merge += (n - start - offset_merge + (n_threads - thread) - 1) / (n_threads - thread);
-                    // printf("OFFSET: TID: %lu-%lu\n", tid, offset_merge);
                 }
 
                 right = left + offset_merge - 1;
-
                 merge(data, left, mid, right);
-                // printf("TID: %lu - STEP: %lu\n", tid, level_merge);
+                // printf("TID: %lu - STEP: %d\n", tid, level_merge);
                 // printf("LEFT: TID: %lu-%lu\n", tid, left);
                 // printf("MID: TID: %lu-%lu\n", tid, mid);
                 // printf("RIGHT: TID: %lu-%lu\n", tid, right);
@@ -194,7 +191,7 @@ int main(int argc, char *argv[])
     const size_t size = N * sizeof(long int);
 
     a = (long int *)malloc(size);
-    gpuErrchk(cudaMalloc((void **)&dev_a, size));
+    cudaHandleError(cudaMalloc((void **)&dev_a, size));
 
     printf("Sort algorithm on array of %lu elements\n\n", N);
 
@@ -209,7 +206,7 @@ int main(int argc, char *argv[])
     printf("Parallel implementation:\n");
     init_array(a, N);
     // print_array(a, N);
-    gpuErrchk(cudaMemcpy(dev_a, a, size, cudaMemcpyHostToDevice));
+    cudaHandleError(cudaMemcpy(dev_a, a, size, cudaMemcpyHostToDevice));
 
     if (N <= partition_size) // TODO: RAMO DEBUGGGATO OK
     {
@@ -286,15 +283,15 @@ int main(int argc, char *argv[])
     }
     else // since I need that the data is ordered before merge //TODO: PROBLEM WITH 25601
     {
-        radix_sort_kernel<<<gridSize, blockSize>>>(dev_a, N, partition_size, num_total_threads); // GLOBAL MEMORY; TODO: here I could use shared memory with size equal to partition_size
+        // radix_sort_kernel<<<gridSize, blockSize>>>(dev_a, N, partition_size, num_total_threads); // GLOBAL MEMORY; TODO: here I could use shared memory with size equal to partition_size
         cudaDeviceSynchronize();
-        // merge_kernel<<<1, blockSize>>>(dev_a, N, partition_size, num_threads_per_block); // GLOBAL MEMORY
+        sort_kernel<<<gridSize, blockSize>>>(dev_a, N, partition_size, num_total_threads); // GLOBAL MEMORY TODO: WRONG!
         cudaDeviceSynchronize();
     }
 
     tstop = gettime();
-    gpuErrchk(cudaPeekAtLastError());
-    gpuErrchk(cudaMemcpy(a, dev_a, size, cudaMemcpyDeviceToHost));
+    cudaHandleError(cudaPeekAtLastError());
+    cudaHandleError(cudaMemcpy(a, dev_a, size, cudaMemcpyDeviceToHost));
     // print_array(a, N);
     check_result(a, N);
     bzero(a, size); /* erase destination buffer, just in case... */
@@ -302,6 +299,6 @@ int main(int argc, char *argv[])
 
     // Free memory on host and device
     free(a);
-    gpuErrchk(cudaFree(dev_a));
+    cudaHandleError(cudaFree(dev_a));
     return 0;
 }

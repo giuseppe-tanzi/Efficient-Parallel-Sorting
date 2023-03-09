@@ -5,10 +5,6 @@
 #include <math.h>
 #include <cuda_runtime.h>
 
-// Useful to check errors in the cuda kernels
-#define gpuErrchk(ans){gpuAssert((ans), __FILE__, __LINE__);}
-void gpuAssert(cudaError_t code, const char *file, int line, bool abort = true);
-
 /* Function to get the actual time*/
 double gettime(void);
 
