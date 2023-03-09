@@ -28,4 +28,4 @@ bool IsPowerOfTwo(unsigned long x);
 __device__ void get_max(long int *data, unsigned long n, long int *max);
 
 /* Function to get the power of base to exp; it stores the result in result*/
-__device__ void power(int base, int exp, unsigned long *result);
+__device__ void power(int base, int exp, unsigned *result);

@@ -76,7 +76,7 @@ __device__ void get_max(long int *data, unsigned long n, long int *max)
     }
 }
 
-__device__ void power(int base, int exp, unsigned long *result)
+__device__ void power(int base, int exp, unsigned *result)
 {
     *result = 1;
     for (;;)
