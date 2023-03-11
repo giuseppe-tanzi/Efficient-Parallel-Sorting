@@ -93,6 +93,9 @@ StyleCopReport.xml
 *.svclog
 *.scc
 
+# Executable files on Linux
+*.out
+
 # Chutzpah Test files
 _Chutzpah*
 
