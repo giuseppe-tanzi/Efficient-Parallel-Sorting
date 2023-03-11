@@ -50,14 +50,16 @@ __device__ void radix_sort(long int *data, unsigned long n)
 __global__ void radix_sort_kernel(long int *data, unsigned long n, unsigned offset, const unsigned long n_threads)
 {
     const unsigned tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    // Variables useful to compute the portion of array for each thread
     unsigned long start = tid * offset;
-    unsigned old_offset;
-    unsigned thread;
+    unsigned old_offset = 0;
+    unsigned prec_thread = 0;
 
     // Compute new start, end and offset for the thread, computing the offset of precedent threads
     if (tid != 0)
     {
-        // Compute old offset in a recursive way, in order to compute the start for the thread
+        // Compute old offset in a recursive way, in order to compute the start for the current thread
         if (tid - 1 == 0)
         {
             start = tid * offset;
@@ -66,11 +68,16 @@ __global__ void radix_sort_kernel(long int *data, unsigned long n, unsigned offs
         {
             start = 0;
             old_offset = offset;
-            for (thread = 1; thread < tid; thread++)
+            for (prec_thread = 1; prec_thread < tid; prec_thread++)
             {
+                /*
+                    This if-else is useful if there are more thread than needed:
+                        - Ensures that no necessary thread remain in idle
+                */
                 if ((n - old_offset) > 0) // MORE THREAD THAN NEEDED
                 {
-                    old_offset += (n - old_offset + (n_threads - thread) - 1) / (n_threads - thread);
+                    // ceil((n - old_offset/n_threads - prec_thread))
+                    old_offset += (n - old_offset + (n_threads - prec_thread) - 1) / (n_threads - prec_thread);
                 }
                 else
                 {
@@ -79,6 +86,8 @@ __global__ void radix_sort_kernel(long int *data, unsigned long n, unsigned offs
             }
             start = old_offset;
         }
+
+        // ceil((n - start) / (n_threads - tid))
         offset = (n - start + (n_threads - tid) - 1) / (n_threads - tid);
     }
 
