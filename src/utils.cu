@@ -29,8 +29,9 @@ void init_array(long int *data, unsigned long nitems)
 
 __host__ __device__ void print_array(long int *data, unsigned long size)
 {
-    for (unsigned long i = 0; i < size; i++)
+    for (unsigned long i = 0; i < size; i++) {
         printf("%li ", data[i]);
+    }
     printf("\n");
 }
 
