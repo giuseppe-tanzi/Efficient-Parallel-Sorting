@@ -155,18 +155,21 @@ unsigned long get_list_to_merge(unsigned long n, unsigned partition, unsigned nu
     return list_to_merge;
 }
 
-void get_start_and_size(unsigned long num_block, unsigned long n, unsigned partition, unsigned total_blocks, unsigned total_threads, unsigned long *values)
+void get_start_and_size(unsigned long num_block, unsigned long n, unsigned partition, unsigned total_blocks, unsigned total_threads, unsigned long *values, unsigned int *offsets)
 {
-    int start = 0;
-    int size = 1;
+    unsigned int start = 0;
+    unsigned int size = 1;
+
     unsigned long thread;
+    unsigned tid = 0; // Actual thread in the block
     unsigned num_blocks_sort = total_threads / (float)MAXTHREADSPERBLOCK;
     unsigned multiplier = num_blocks_sort / (float)total_blocks;
-    unsigned long precedent_threads =  multiplier * MAXTHREADSPERBLOCK * num_block;
+    unsigned long precedent_threads = multiplier * MAXTHREADSPERBLOCK * num_block;
 
     // unsigned long total_threads = (num_block + 1) * MAXTHREADSPERBLOCK;
     unsigned start_v = 0;
     unsigned size_v = 0;
+    unsigned offset = 0;
 
     if (num_block == 0)
     {
@@ -197,7 +200,10 @@ void get_start_and_size(unsigned long num_block, unsigned long n, unsigned parti
     {
         if ((n - size_v) > 0) // MORE THREAD THAN NEEDED
         {
-            size_v += (n - size_v + (total_threads - thread) - 1) / (total_threads - thread);
+            offset = (n - size_v + (total_threads - thread) - 1) / (total_threads - thread);
+            size_v += offset;
+            offsets[tid] = offset;
+            tid++;
         }
         else
         {
@@ -327,7 +333,7 @@ int main(int argc, char *argv[])
         0. Call the radix sort on the array - DONE
         1. Compute the numbers of list to merge - DONE
         2. Get a different portion of the array for each block - DONE
-        2. Write a for-loop in which you call each block on a different portion of the array 
+        2. Write a for-loop in which you call each block on a different portion of the array
         3. cudaDeviceSynchronize();
         3. Call a single block to merge the entire array on the different results of the different blocks
         */
@@ -338,19 +344,21 @@ int main(int argc, char *argv[])
         unsigned long n_blocks_needed = ceil(n_merge / MAXTHREADSPERBLOCK);
 
         unsigned long **block_dimension;
-        block_dimension = (unsigned long **)malloc(n_merge * sizeof(unsigned long *));
-        for (int i = 0; i < n_merge; i++)
+        unsigned int **thread_offset = (unsigned int **)malloc(n_blocks_needed * sizeof(unsigned int *));
+        block_dimension = (unsigned long **)malloc(n_blocks_needed * sizeof(unsigned long *));
+        for (int i = 0; i < n_blocks_needed; i++)
         {
             block_dimension[i] = (unsigned long *)malloc(2 * sizeof(unsigned long));
+            thread_offset[i] = (unsigned int *)malloc(2 * MAXTHREADSPERBLOCK * sizeof(unsigned int));
         }
 
         for (int num_block = 0; num_block < n_blocks_needed; num_block++) // TODO: TEST WITH N=25601
         {
             // Compute the size of dev_a and where to start
-            get_start_and_size(num_block, N, partition_size, n_blocks_needed, num_total_threads, block_dimension[num_block]);
+            get_start_and_size(num_block, N, partition_size, n_blocks_needed, num_total_threads, block_dimension[num_block], thread_offset[num_block]);
 
-            // IN QUESTO KERNEL BISOGNA RISALIRE ALLE LISTE ORIGINALI ORDINATE DAL RADIX SORT AFFINCHE' TUTTO FUNZIONI
-            // merge_kernel<<<1, blockSize>>>(dev_a[block_dimension[num_block][0]], block_dimension[num_block][1], partition_size(?), num_threads_per_block(?)); // GLOBAL MEMORY;
+            // IN QUESTO KERNEL BISOGNA RISALIRE ALLE LISTE ORIGINALI ORDINATE DAL RADIX SORT AFFINCHE' TUTTO FUNZIONI - SICURO SI PUò USARE SHARED MEMORY SUGLI OFFSET
+            // merge_kernel<<<1, blockSize>>>(&dev_a[block_dimension[num_block][0]], block_dimension[num_block][1], thread_offset[num_block], num_threads_per_block(?)); // GLOBAL MEMORY;
         }
 
         // sort_kernel<<<gridSize, blockSize>>>(dev_a, N, partition_size, num_total_threads); // GLOBAL MEMORY TODO: WRONG!
