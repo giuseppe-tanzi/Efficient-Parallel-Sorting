@@ -347,7 +347,7 @@ int main(int argc, char *argv[])
     unsigned long first, last;
     long int *a, *dev_a;
     unsigned long num_threads_per_block, num_blocks, num_total_threads;
-    unsigned partition_size = 50; // TODO: TEMPORARY VALUE
+    unsigned partition_size = 50; // TODO: TEMPORARY VALUE - TO CHECK OTHER VALUES 
     double tstart, tstop;
 
     if (argc > 1)
@@ -474,18 +474,19 @@ int main(int argc, char *argv[])
     {
         sort_kernel<<<gridSize, blockSize>>>(dev_a, N, partition_size, num_total_threads); // GLOBAL MEMORY
     }
-    else // since I need that the data is ordered before merge //TODO: PROBLEM WITH 25601
+    else //TODO: PROBLEM WITH 25601
     {
         /*
         STEPS:
         0. Call the radix sort on the array - DONE
         1. Compute the numbers of list to merge - DONE
         2. Get a different portion of the array for each block - DONE
-        2. Write a for-loop in which you call each block on a different portion of the array
-        3. cudaDeviceSynchronize();
-        3. Call a single block to merge the entire array on the different results of the different blocks
+        3. Write a for-loop in which you call each block on a different portion of the array
+        4. cudaDeviceSynchronize();
+        5. Call a single block to merge the entire array on the different results of the different blocks
         */
 
+        // The data has to be ordered before merging phase
         radix_sort_kernel<<<gridSize, blockSize>>>(dev_a, N, partition_size, num_total_threads); // GLOBAL MEMORY; TODO: here I could use shared memory with size equal to partition_size
         cudaHandleError(cudaPeekAtLastError());
 
