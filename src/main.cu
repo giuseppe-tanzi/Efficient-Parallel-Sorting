@@ -188,7 +188,7 @@ unsigned long get_n_list_to_merge(unsigned long n, unsigned partition, unsigned 
     return n_list_to_merge;
 }
 
-/* COMMENT THIS FUNCTION*/
+// TODO:Comment this function
 void get_start_and_size(unsigned long *block_dimension, unsigned long *offsets, unsigned long n, unsigned partition, unsigned total_blocks, unsigned total_threads)
 {
     unsigned int idx_start = 0;
@@ -215,9 +215,9 @@ void get_start_and_size(unsigned long *block_dimension, unsigned long *offsets, 
     for (current_block = 0; current_block < total_blocks; current_block++)
     {
         precedent_threads *= current_block;
-        idx_start = current_block * total_blocks;
+        idx_start = current_block * 2;
         idx_size = idx_start + 1;
-        idx_tid = current_block * total_blocks;
+        idx_tid = current_block * MAXTHREADSPERBLOCK;
 
         if (current_block == 0)
         {
@@ -266,10 +266,11 @@ void get_start_and_size(unsigned long *block_dimension, unsigned long *offsets, 
     }
 }
 
+// TODO:Comment this function
 __global__ void merge_kernel(long int *data, unsigned long n, unsigned long *offset, const unsigned long n_threads, const unsigned current_block)
 {
     // extern __shared__ long int sdata[];
-    const unsigned long tid =  current_block + threadIdx.x;
+    const unsigned tid = current_block + threadIdx.x;
     unsigned long start = 0;
     unsigned long end = 0;
 
@@ -280,17 +281,15 @@ __global__ void merge_kernel(long int *data, unsigned long n, unsigned long *off
 
     unsigned long i;
 
-    printf("OFFSET: %lu\n", offset[current_block]); //TODO: UNDERSTAND HOW TO USE
+    // printf("OFFSET: %lu\n", offset[current_block]);
 
     // Compute new start, end and offset for the thread, computing the offset of precedent threads
-    for (i = 0; i < tid; i++)
+    for (i = current_block; i < tid; i++)
     {
-        // printf("TID: %d - I=%d - Pippo\n", tid, i);
         start += offset[i];
-        printf("TID: %lu - N_OFFSET: %lu", tid, i);
     }
 
-    printf("TID: %lu - START: %li", tid, start);
+    // printf("TID: %lu - START: %li", tid, start);
     end = start + offset[tid] - 1;
 
     // Log(num_threads)/Log(2) == Log_2(num_threads)
@@ -301,7 +300,7 @@ __global__ void merge_kernel(long int *data, unsigned long n, unsigned long *off
         levels_merge++;
     }
 
-    printf("Sono il thread n.ro %lu con last n.ro %lu\n", start, end);
+    // printf("Sono il thread n.ro %lu con last n.ro %lu\n", start, end);
 
     // // Load data into shared memory
     // for (i = start; i < end + 1; i++)
@@ -481,10 +480,9 @@ int main(int argc, char *argv[])
     n_merge = ceil(get_n_list_to_merge(N, partition_size, n_total_threads) / (float)2);
     n_blocks_merge = ceil(n_merge / (float)MAXTHREADSPERBLOCK);
 
-    const size_t size_threads = MAXTHREADSPERBLOCK * sizeof(unsigned long);
     const size_t size_blocks = n_blocks_merge * MAXTHREADSPERBLOCK * sizeof(unsigned long);
 
-    block_dimension = (unsigned long *)malloc(size_blocks);
+    block_dimension = (unsigned long *)malloc(n_blocks_merge * 2 * sizeof(unsigned long));
     thread_offset = (unsigned long *)malloc(size_blocks);
     block_offset = (unsigned long *)malloc(n_blocks_merge * sizeof(unsigned long));
     cudaHandleError(cudaMalloc((void **)&dev_thread_offset, size_blocks));
@@ -530,22 +528,22 @@ int main(int argc, char *argv[])
 
         // Compute the size of dev_a and where to start
         get_start_and_size(block_dimension, thread_offset, N, partition_size, n_blocks_merge, n_total_threads);
-        cudaHandleError(cudaMemcpy(dev_thread_offset, thread_offset, size_threads, cudaMemcpyHostToDevice));
+        cudaHandleError(cudaMemcpy(dev_thread_offset, thread_offset, size_blocks, cudaMemcpyHostToDevice));
 
         for (unsigned num_block = 0; num_block < n_blocks_merge; num_block++) // TODO: TEST WITH N=25601
         {
-            idx_block_start = num_block * n_blocks_merge;
+            idx_block_start = num_block * 2;
             idx_block_start = idx_block_start + 1;
 
             // IN QUESTO KERNEL BISOGNA RISALIRE ALLE LISTE ORIGINALI ORDINATE DAL RADIX SORT AFFINCHE' TUTTO FUNZIONI - SICURO SI PUò USARE SHARED MEMORY SUGLI OFFSET
-            merge_kernel<<<1, blockSize>>>(&dev_a[block_dimension[idx_block_start]], block_dimension[idx_block_size], dev_thread_offset, n_threads_per_block, num_block); // GLOBAL MEMORY;
+            merge_kernel<<<1, blockSize>>>(&dev_a[block_dimension[idx_block_start]], block_dimension[idx_block_size], dev_thread_offset, n_threads_per_block, num_block * MAXTHREADSPERBLOCK); // GLOBAL MEMORY;
             cudaHandleError(cudaPeekAtLastError());
 
             block_offset[num_block] = block_dimension[idx_block_size] - block_dimension[idx_block_start];
         }
 
-        cudaHandleError(cudaDeviceSynchronize());
         cudaHandleError(cudaPeekAtLastError());
+        cudaHandleError(cudaDeviceSynchronize());
 
         merge_kernel<<<1, blockSize>>>(dev_a, N, block_offset, n_threads_per_block, 0); // GLOBAL MEMORY;
     }
