@@ -274,7 +274,7 @@ __global__ void merge_kernel(long int *data, unsigned long n, unsigned long *off
     unsigned long start = 0;
     unsigned long end = 0;
 
-    unsigned left, mid, right, offset_merge;
+    unsigned long left, mid, right, offset_merge;
     unsigned level_merge = 0, levels_merge = 0;
     unsigned temp_n_threads = n_threads;
     unsigned num_thread_to_merge = 0, threads_to_merge = 0;
@@ -292,7 +292,7 @@ __global__ void merge_kernel(long int *data, unsigned long n, unsigned long *off
     // printf("TID: %lu - START: %li", tid, start);
     end = start + offset[tid] - 1;
 
-    // Log(num_threads)/Log(2) == Log_2(num_threads)
+    // Log(n_threads)/Log(2) == Log_2(n_threads)
     // Compute number of merge needed in the merge sort
     while (temp_n_threads > 1)
     {
@@ -321,20 +321,20 @@ __global__ void merge_kernel(long int *data, unsigned long n, unsigned long *off
         if ((tid % threads_to_merge) == 0)
         {
             left = start;
-            offset_merge = offset[tid];
+            offset_merge = offset[tid]; //TODO: PROBLEM WITH OFFSET - AT STEP 2 IT BECAMES 0 - NO SENSE
+            printf("STEP: %d - TID: %d - OFFSET_TID: %lu\n", level_merge, tid, offset[tid]);
 
-            for (num_thread_to_merge = 1; num_thread_to_merge <= threads_to_merge; num_thread_to_merge++)
+            for (num_thread_to_merge = current_block + 1; num_thread_to_merge < current_block + threads_to_merge; num_thread_to_merge++)
             {
                 offset_merge += offset[tid + num_thread_to_merge];
             }
 
             right = left + offset_merge - 1;
+            // printf("STEP: %d - TID: %d - RIGHT: %d\n", level_merge, tid, right);
+            // printf("STEP: %d - TID: %d - LEFT: %d\n", level_merge, tid, left);
+            // printf("STEP: %d - TID: %d - OFFSET_MERGE: %d\n", level_merge, tid, offset_merge);
+            // printf("MID: TID: %d-%d\n", tid, mid);
             merge(data, left, mid, right);
-            // printf("TID: %lu - STEP: %d\n", tid, level_merge);
-            // printf("LEFT: TID: %lu-%lu\n", tid, left);
-            // printf("MID: TID: %lu-%lu\n", tid, mid);
-            // printf("RIGHT: TID: %lu-%lu\n", tid, right);
-            // printf("OFFSET: TID: %lu-%lu\n", tid, offset_merge);
             // for (long k = start; k < left + offset_merge; k++)
             // {
             //     printf("%lu:%li\n", k, sdata[k]);
@@ -524,20 +524,24 @@ int main(int argc, char *argv[])
 
         // The data has to be ordered before merging phase
         radix_sort_kernel<<<gridSize, blockSize>>>(dev_a, N, partition_size, n_total_threads); // GLOBAL MEMORY; TODO: here I could use shared memory with size equal to partition_size
+        cudaHandleError(cudaDeviceSynchronize());
         cudaHandleError(cudaPeekAtLastError());
 
         // Compute the size of dev_a and where to start
         get_start_and_size(block_dimension, thread_offset, N, partition_size, n_blocks_merge, n_total_threads);
         cudaHandleError(cudaMemcpy(dev_thread_offset, thread_offset, size_blocks, cudaMemcpyHostToDevice));
 
+        printf("N BLOCKs MERGE: %d\n", n_blocks_merge);
+
         for (unsigned num_block = 0; num_block < n_blocks_merge; num_block++) // TODO: TEST WITH N=25601
         {
             idx_block_start = num_block * 2;
             idx_block_start = idx_block_start + 1;
+            printf("NUM BLOCK MERGE: %d\n", num_block);
 
-            // IN QUESTO KERNEL BISOGNA RISALIRE ALLE LISTE ORIGINALI ORDINATE DAL RADIX SORT AFFINCHE' TUTTO FUNZIONI - SICURO SI PUò USARE SHARED MEMORY SUGLI OFFSET
+            // TODO: SICURO SI PUò USARE SHARED MEMORY SUGLI OFFSET
             merge_kernel<<<1, blockSize>>>(&dev_a[block_dimension[idx_block_start]], block_dimension[idx_block_size], dev_thread_offset, n_threads_per_block, num_block * MAXTHREADSPERBLOCK); // GLOBAL MEMORY;
-            cudaHandleError(cudaPeekAtLastError());
+            // cudaHandleError(cudaPeekAtLastError());
 
             block_offset[num_block] = block_dimension[idx_block_size] - block_dimension[idx_block_start];
         }
