@@ -214,10 +214,12 @@ void get_start_and_size(unsigned long *block_dimension, unsigned long *offsets, 
 
     for (current_block = 0; current_block < total_blocks; current_block++)
     {
-        precedent_threads *= current_block;
+        precedent_threads = multiplier * MAXTHREADSPERBLOCK * current_block;
         idx_start = current_block * 2;
         idx_size = idx_start + 1;
         idx_tid = current_block * MAXTHREADSPERBLOCK;
+        start_v = 0;
+        size_v = 0;
 
         if (current_block == 0)
         {
@@ -522,6 +524,7 @@ int main(int argc, char *argv[])
         cudaHandleError(cudaPeekAtLastError());
 
         // Compute the size of dev_a and where to start
+        // TODO: THIS CAUSE SEGMENTATION FAULT!
         get_start_and_size(block_dimension, thread_offset, N, partition_size, n_blocks_merge, n_total_threads);
         cudaHandleError(cudaMemcpy(dev_thread_offset, thread_offset, size_blocks, cudaMemcpyHostToDevice));
 
@@ -535,7 +538,6 @@ int main(int argc, char *argv[])
 
             // TODO: SICURO SI PUò USARE SHARED MEMORY SUGLI OFFSET
             merge_kernel<<<1, blockSize>>>(&dev_a[block_dimension[idx_block_start]], block_dimension[idx_block_size], dev_thread_offset, n_threads_per_block, num_block * MAXTHREADSPERBLOCK); // GLOBAL MEMORY;
-            // cudaHandleError(cudaPeekAtLastError());
 
             block_offset[num_block] = block_dimension[idx_block_size] - block_dimension[idx_block_start];
         }
