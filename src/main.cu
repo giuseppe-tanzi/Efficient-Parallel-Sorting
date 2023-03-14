@@ -6,7 +6,7 @@
 #include "../lib/radixSort.cuh"
 #include "../lib/mergeSort.cuh"
 
-#define MAXTHREADSPERBLOCK 1024
+#define MAXTHREADSPERBLOCK 512
 #define MAXBLOCKS 65535
 
 /*
