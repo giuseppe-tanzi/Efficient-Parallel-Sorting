@@ -6,7 +6,7 @@
 #include "../lib/radixSort.cuh"
 #include "../lib/mergeSort.cuh"
 
-#define MAXTHREADSPERBLOCK 512
+#define MAXTHREADSPERBLOCK 1024
 #define MAXBLOCKS 65535
 
 /*
@@ -202,8 +202,8 @@ void get_start_and_size(unsigned long *block_dimension, unsigned long *offsets, 
     unsigned current_block = 0;
 
     // unsigned long total_threads = (num_block + 1) * MAXTHREADSPERBLOCK;
-    unsigned start_v = 0;
-    unsigned size_v = 0;
+    unsigned long start_v = 0;
+    unsigned long size_v = 0;
     unsigned long offset = 0;
 
     // Initialization of the offset for each thread in each block
@@ -331,7 +331,7 @@ __global__ void merge_kernel(long int *data, unsigned long n, unsigned long *off
 
             right = left + offset_merge - 1;
             // printf("STEP: %d - TID: %d - RIGHT: %d\n", level_merge, tid, right);
-            // printf("STEP: %d - TID: %d - LEFT: %d\n", level_merge, tid, left);
+            printf("STEP: %d - TID: %d - LEFT: %lu\n", level_merge, tid, left);
             // printf("STEP: %d - TID: %d - OFFSET_MERGE: %d\n", level_merge, tid, offset_merge);
             // printf("MID: TID: %d-%d\n", tid, mid);
             merge(data, left, mid, right);
@@ -362,8 +362,8 @@ int main(int argc, char *argv[])
     unsigned n_blocks_merge = 0;
 
     // Variables useful to manage the partition of array to assign to each block during the merging phase
-    unsigned idx_block_start = 0;
-    unsigned idx_block_size = 0;
+    unsigned long idx_block_start = 0;
+    unsigned long idx_block_size = 0;
     unsigned long *block_dimension;
 
     // Variables useful to manage the partition of array to assign at each thread in each block at level 0 during the merging phase
@@ -487,12 +487,6 @@ int main(int argc, char *argv[])
     block_offset = (unsigned long *)malloc(n_blocks_merge * sizeof(unsigned long));
     cudaHandleError(cudaMalloc((void **)&dev_thread_offset, size_blocks));
 
-    // for (int i = 0; i < n_blocks_merge; i++)
-    // {
-    //     block_dimension[i] = (unsigned long *)malloc(2 * sizeof(unsigned long)); // 2 since the first position is the start and the second position is the size
-    //     thread_offset[i] = (unsigned long *)malloc(size_threads);
-    //     cudaHandleError(cudaMallocManaged((void **)&dev_thread_offset[i], size_threads));
-    // }
 
     tstart = gettime();
     // sort_kernel<<<gridSize, blockSize, size>>>(dev_a, N, partition_size, num_total_threads); //problem with size shared memory
