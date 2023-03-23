@@ -283,16 +283,14 @@ __global__ void merge_kernel(long int *data, unsigned long n, unsigned long *off
 
     unsigned long i;
 
-    // printf("OFFSET: %lu\n", offset[current_block]);
-
     // Compute new start, end and offset for the thread, computing the offset of precedent threads
     for (i = current_block; i < tid; i++)
     {
         start += offset[i];
     }
 
-    // printf("TID: %lu - START: %li", tid, start);
     end = start + offset[tid] - 1;
+    // print_array(&data[start], offset[tid]);
 
     // Log(n_threads)/Log(2) == Log_2(n_threads)
     // Compute number of merge needed in the merge sort
@@ -311,20 +309,15 @@ __global__ void merge_kernel(long int *data, unsigned long n, unsigned long *off
     // }
 
     // Merge the sorted array
-    for (level_merge = 0; level_merge < levels_merge; level_merge++)
+    for (level_merge = 0; level_merge <= levels_merge; level_merge++)
     {
-        if (level_merge == 0)
-        {
-            mid = end;
-        }
 
         power(2, level_merge, &threads_to_merge);
 
         if ((tid % threads_to_merge) == 0)
         {
             left = start;
-            offset_merge = offset[tid]; //TODO: PROBLEM WITH OFFSET - AT STEP 2 IT BECAMES 0 - NO SENSE
-            printf("STEP: %d - TID: %d - OFFSET_TID: %lu\n", level_merge, tid, offset[tid]);
+            offset_merge = offset[tid];
 
             for (num_thread_to_merge = current_block + 1; num_thread_to_merge < current_block + threads_to_merge; num_thread_to_merge++)
             {
@@ -332,14 +325,23 @@ __global__ void merge_kernel(long int *data, unsigned long n, unsigned long *off
             }
 
             right = left + offset_merge - 1;
-            // printf("STEP: %d - TID: %d - RIGHT: %d\n", level_merge, tid, right);
-            printf("STEP: %d - TID: %d - LEFT: %lu\n", level_merge, tid, left);
-            // printf("STEP: %d - TID: %d - OFFSET_MERGE: %d\n", level_merge, tid, offset_merge);
-            // printf("MID: TID: %d-%d\n", tid, mid);
+
+            if (level_merge == 0)
+            {
+                mid = left + (right - left) / 2;
+            }
+
             merge(data, left, mid, right);
-            // for (long k = start; k < left + offset_merge; k++)
+            // if (level_merge == 0 && tid == 0)
             // {
-            //     printf("%lu:%li\n", k, sdata[k]);
+            //     printf("STEP: %d - TID: %d - RIGHT: %lu\n", level_merge, tid, right);
+            //     printf("STEP: %d - TID: %d - LEFT: %lu\n", level_merge, tid, left);
+            //     printf("STEP: %d - TID: %d - OFFSET_MERGE: %lu\n", level_merge, tid, offset_merge);
+            //     printf("STEP: %d - TID: %d - MID: %lu\n", level_merge, tid, mid);
+            //     for (long k = start; k < left + offset_merge; k++)
+            //     {
+            //         printf("%lu:%li\n", k, data[k]);
+            //     }
             // }
 
             // Fix since the two merged list are of two different dimension, because the offset is balanced between threads.
@@ -369,7 +371,7 @@ int main(int argc, char *argv[])
     unsigned long *block_dimension;
 
     // Variables useful to manage the partition of array to assign at each thread in each block at level 0 during the merging phase
-    unsigned long *thread_offset, *dev_thread_offset, *block_offset;
+    unsigned long *thread_offset, *dev_thread_offset, *block_offset, *dev_block_offset;
 
     if (argc > 1)
     {
@@ -488,7 +490,7 @@ int main(int argc, char *argv[])
     thread_offset = (unsigned long *)malloc(size_blocks);
     block_offset = (unsigned long *)malloc(n_blocks_merge * sizeof(unsigned long));
     cudaHandleError(cudaMalloc((void **)&dev_thread_offset, size_blocks));
-
+    cudaHandleError(cudaMalloc((void **)&dev_block_offset, n_blocks_merge * sizeof(unsigned long)));
 
     tstart = gettime();
     // sort_kernel<<<gridSize, blockSize, size>>>(dev_a, N, partition_size, num_total_threads); //problem with size shared memory
@@ -520,6 +522,8 @@ int main(int argc, char *argv[])
 
         // The data has to be ordered before merging phase
         radix_sort_kernel<<<gridSize, blockSize>>>(dev_a, N, partition_size, n_total_threads); // GLOBAL MEMORY; TODO: here I could use shared memory with size equal to partition_size
+        // cudaHandleError(cudaMemcpy(a, dev_a, size_array, cudaMemcpyDeviceToHost));
+        // print_array(a, N);
         cudaHandleError(cudaDeviceSynchronize());
         cudaHandleError(cudaPeekAtLastError());
 
@@ -528,24 +532,35 @@ int main(int argc, char *argv[])
         get_start_and_size(block_dimension, thread_offset, N, partition_size, n_blocks_merge, n_total_threads);
         cudaHandleError(cudaMemcpy(dev_thread_offset, thread_offset, size_blocks, cudaMemcpyHostToDevice));
 
-        printf("N BLOCKs MERGE: %d\n", n_blocks_merge);
+        // printf("N BLOCKs MERGE: %d\n", n_blocks_merge);
 
         for (unsigned num_block = 0; num_block < n_blocks_merge; num_block++) // TODO: TEST WITH N=25601
         {
             idx_block_start = num_block * 2;
-            idx_block_start = idx_block_start + 1;
-            printf("NUM BLOCK MERGE: %d\n", num_block);
+            idx_block_size = idx_block_start + 1;
+            // printf("NUM BLOCK MERGE: %d\n", num_block);
+            // printf("START: %lu\n", block_dimension[idx_block_start]);
+            // printf("SIZE %lu\n", block_dimension[idx_block_size]);
+
+            // cudaHandleError(cudaMemcpy(a, dev_a, size_array, cudaMemcpyDeviceToHost));
+            // print_array(a + block_dimension[idx_block_start], block_dimension[idx_block_size]);
 
             // TODO: SICURO SI PUò USARE SHARED MEMORY SUGLI OFFSET
-            merge_kernel<<<1, blockSize>>>(&dev_a[block_dimension[idx_block_start]], block_dimension[idx_block_size], dev_thread_offset, n_threads_per_block, num_block * MAXTHREADSPERBLOCK); // GLOBAL MEMORY;
+            // TODO: PROBLEM WITH DATA - PUNTATORE NON CORRETTO
+            // merge_kernel<<<1, blockSize>>>(dev_a + block_dimension[idx_block_start], block_dimension[idx_block_size], dev_thread_offset, n_threads_per_block, num_block * MAXTHREADSPERBLOCK); // GLOBAL MEMORY;
+
+            // TODO: non ordina correttamente nonostante siano giuste le dimensioni - test with 26000
+            merge_kernel<<<1, blockSize>>>(dev_a + block_dimension[idx_block_start], block_dimension[idx_block_size], dev_thread_offset, n_threads_per_block, num_block * MAXTHREADSPERBLOCK); // GLOBAL MEMORY;
 
             block_offset[num_block] = block_dimension[idx_block_size] - block_dimension[idx_block_start];
         }
-
+        cudaHandleError(cudaMemcpy(dev_block_offset, block_offset, n_blocks_merge * sizeof(unsigned long), cudaMemcpyHostToDevice));
         cudaHandleError(cudaPeekAtLastError());
         cudaHandleError(cudaDeviceSynchronize());
-
-        merge_kernel<<<1, blockSize>>>(dev_a, N, block_offset, n_threads_per_block, 0); // GLOBAL MEMORY;
+        if (n_blocks_merge > 1)
+        {
+            merge_kernel<<<1, blockSize>>>(dev_a, N, dev_block_offset, n_threads_per_block, 0); // GLOBAL MEMORY;
+        }
     }
 
     tstop = gettime();
