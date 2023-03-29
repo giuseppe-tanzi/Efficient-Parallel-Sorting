@@ -269,10 +269,10 @@ void get_start_and_size(unsigned long *block_dimension, unsigned long *offsets, 
 }
 
 // TODO:Comment this function
-__global__ void merge_kernel(long int *data, unsigned long n, unsigned long *offset, const unsigned long n_threads, const unsigned current_block)
+__global__ void merge_kernel(long int *data, unsigned long n, const unsigned long *offset, const unsigned long n_threads, const unsigned num_threads_precedent_blocks)
 {
     // extern __shared__ long int sdata[];
-    const unsigned tid = current_block + threadIdx.x;
+    const unsigned tid = num_threads_precedent_blocks + threadIdx.x;
     unsigned long start = 0;
     unsigned long end = 0;
 
@@ -284,13 +284,12 @@ __global__ void merge_kernel(long int *data, unsigned long n, unsigned long *off
     unsigned long i;
 
     // Compute new start, end and offset for the thread, computing the offset of precedent threads
-    for (i = current_block; i < tid; i++)
+    for (i = num_threads_precedent_blocks; i < tid; i++)
     {
         start += offset[i];
     }
 
     end = start + offset[tid] - 1;
-    // print_array(&data[start], offset[tid]);
 
     // Log(n_threads)/Log(2) == Log_2(n_threads)
     // Compute number of merge needed in the merge sort
@@ -319,7 +318,7 @@ __global__ void merge_kernel(long int *data, unsigned long n, unsigned long *off
             left = start;
             offset_merge = offset[tid];
 
-            for (num_thread_to_merge = current_block + 1; num_thread_to_merge < current_block + threads_to_merge; num_thread_to_merge++)
+            for (num_thread_to_merge = 1; num_thread_to_merge < threads_to_merge; num_thread_to_merge++)
             {
                 offset_merge += offset[tid + num_thread_to_merge];
             }
@@ -328,20 +327,88 @@ __global__ void merge_kernel(long int *data, unsigned long n, unsigned long *off
 
             if (level_merge == 0)
             {
-                mid = left + (right - left) / 2;
+                mid = left + (right - left) / 2; // TODO: FIX MID MAYBE IT IS WRONG
             }
 
             merge(data, left, mid, right);
-            // if (level_merge == 0 && tid == 0)
+            // if (tid == 512 && level_merge == levels_merge)
             // {
             //     printf("STEP: %d - TID: %d - RIGHT: %lu\n", level_merge, tid, right);
             //     printf("STEP: %d - TID: %d - LEFT: %lu\n", level_merge, tid, left);
             //     printf("STEP: %d - TID: %d - OFFSET_MERGE: %lu\n", level_merge, tid, offset_merge);
             //     printf("STEP: %d - TID: %d - MID: %lu\n", level_merge, tid, mid);
-            //     for (long k = start; k < left + offset_merge; k++)
+            //     for (long k = left; k < offset_merge; k++)
             //     {
             //         printf("%lu:%li\n", k, data[k]);
             //     }
+            // }
+
+            // Fix since the two merged list are of two different dimension, because the offset is balanced between threads.
+            // Merge sort expects to have mid as maximum value of the first list
+            mid = right;
+        }
+        __syncthreads();
+    }
+}
+
+__global__ void merge_blocks_lists_kernel(long int *data, unsigned long n, unsigned long *offset, unsigned long *first_mid, const unsigned long n_threads)
+{
+    // extern __shared__ long int sdata[];
+    const unsigned tid = threadIdx.x;
+    unsigned long start = 0;
+    unsigned long end = 0;
+
+    unsigned long left, mid, right, offset_merge;
+    unsigned level_merge = 0, levels_merge = n_threads;
+    unsigned num_thread_to_merge = 0, threads_to_merge = 0;
+
+    unsigned long i;
+
+    // Compute new start, end and offset for the thread, computing the offset of precedent threads
+    for (i = 0; i < tid; i++)
+    {
+        start += offset[i];
+    }
+
+    end = start + offset[tid] - 1;
+    mid = first_mid[tid] - 1;
+
+    // printf("Sono il thread n.ro %lu con last n.ro %lu\n", start, end);
+    // printf("TOTALS LEVEL MERGE: %d\n", levels_merge);
+
+    // // Load data into shared memory
+    // for (i = start; i < end + 1; i++)
+    // {
+    //     sdata[i] = data[i];
+    // }
+
+    // Merge the sorted array
+    for (level_merge = 0; level_merge < levels_merge; level_merge++)
+    {
+
+        power(2, level_merge, &threads_to_merge);
+
+        if ((tid % threads_to_merge) == 0)
+        {
+            left = start;
+            offset_merge = offset[tid];
+
+            for (num_thread_to_merge = 1; num_thread_to_merge < threads_to_merge; num_thread_to_merge++)
+            {
+                offset_merge += offset[tid + num_thread_to_merge];
+            }
+
+            right = left + offset_merge - 1;
+
+            // printf("STEP: %d - TID: %d - RIGHT: %lu\n", level_merge, tid, right);
+            // printf("STEP: %d - TID: %d - LEFT: %lu\n", level_merge, tid, left);
+            // printf("STEP: %d - TID: %d - OFFSET_MERGE: %lu\n", level_merge, tid, offset_merge);
+            // printf("STEP: %d - TID: %d - MID: %lu\n", level_merge, tid, mid);
+            merge(data, left, mid, right);
+            
+            // for (long k = start; k < left + offset_merge; k++)
+            // {
+            //     printf("%lu:%li\n", k, data[k]);
             // }
 
             // Fix since the two merged list are of two different dimension, because the offset is balanced between threads.
@@ -371,7 +438,7 @@ int main(int argc, char *argv[])
     unsigned long *block_dimension;
 
     // Variables useful to manage the partition of array to assign at each thread in each block at level 0 during the merging phase
-    unsigned long *thread_offset, *dev_thread_offset, *block_offset, *dev_block_offset;
+    unsigned long *thread_offset, *dev_thread_offset, *block_offset, *dev_block_offset, *block_mid, *dev_block_mid;
 
     if (argc > 1)
     {
@@ -488,9 +555,11 @@ int main(int argc, char *argv[])
 
     block_dimension = (unsigned long *)malloc(n_blocks_merge * 2 * sizeof(unsigned long));
     thread_offset = (unsigned long *)malloc(size_blocks);
-    block_offset = (unsigned long *)malloc(n_blocks_merge * sizeof(unsigned long));
+    block_offset = (unsigned long *)malloc(n_blocks_merge / 2 * sizeof(unsigned long));
+    block_mid = (unsigned long *)malloc(n_blocks_merge / 2 * sizeof(unsigned long));
     cudaHandleError(cudaMalloc((void **)&dev_thread_offset, size_blocks));
-    cudaHandleError(cudaMalloc((void **)&dev_block_offset, n_blocks_merge * sizeof(unsigned long)));
+    cudaHandleError(cudaMalloc((void **)&dev_block_offset, n_blocks_merge / 2 * sizeof(unsigned long)));
+    cudaHandleError(cudaMalloc((void **)&dev_block_mid, n_blocks_merge / 2 * sizeof(unsigned long)));
 
     tstart = gettime();
     // sort_kernel<<<gridSize, blockSize, size>>>(dev_a, N, partition_size, num_total_threads); //problem with size shared memory
@@ -508,7 +577,7 @@ int main(int argc, char *argv[])
     {
         sort_kernel<<<gridSize, blockSize>>>(dev_a, N, partition_size, n_total_threads); // GLOBAL MEMORY
     }
-    else // TODO: PROBLEM WITH 25601 - TEST ALSO WITH 100000
+    else // TODO: PROBLEM WITH 76801 (TWO BLOCKS)
     {
         /*
         STEPS:
@@ -521,20 +590,22 @@ int main(int argc, char *argv[])
         */
 
         // The data has to be ordered before merging phase
+        // TODO: DEBUGGATO OK CON PIù BLOCCHI
         radix_sort_kernel<<<gridSize, blockSize>>>(dev_a, N, partition_size, n_total_threads); // GLOBAL MEMORY; TODO: here I could use shared memory with size equal to partition_size
-        // cudaHandleError(cudaMemcpy(a, dev_a, size_array, cudaMemcpyDeviceToHost));
-        // print_array(a, N);
         cudaHandleError(cudaDeviceSynchronize());
         cudaHandleError(cudaPeekAtLastError());
 
         // Compute the size of dev_a and where to start
-        // TODO: THIS CAUSE SEGMENTATION FAULT!
+        // TODO: DEBUGGATO OK CON PIù BLOCCHI
         get_start_and_size(block_dimension, thread_offset, N, partition_size, n_blocks_merge, n_total_threads);
         cudaHandleError(cudaMemcpy(dev_thread_offset, thread_offset, size_blocks, cudaMemcpyHostToDevice));
-
+        // for (unsigned long i = 0; i < n_blocks_merge * MAXTHREADSPERBLOCK; i++)
+        // {
+        //     printf("%lu:%li\n", i, thread_offset[i]);
+        // }
         // printf("N BLOCKs MERGE: %d\n", n_blocks_merge);
 
-        for (unsigned num_block = 0; num_block < n_blocks_merge; num_block++) // TODO: TEST WITH N=25601
+        for (unsigned num_block = 0; num_block < n_blocks_merge; num_block++) // TODO: TEST WITH N=76801
         {
             idx_block_start = num_block * 2;
             idx_block_size = idx_block_start + 1;
@@ -546,20 +617,38 @@ int main(int argc, char *argv[])
             // print_array(a + block_dimension[idx_block_start], block_dimension[idx_block_size]);
 
             // TODO: SICURO SI PUò USARE SHARED MEMORY SUGLI OFFSET
-            // TODO: PROBLEM WITH DATA - PUNTATORE NON CORRETTO
-            // merge_kernel<<<1, blockSize>>>(dev_a + block_dimension[idx_block_start], block_dimension[idx_block_size], dev_thread_offset, n_threads_per_block, num_block * MAXTHREADSPERBLOCK); // GLOBAL MEMORY;
-
-            // TODO: non ordina correttamente nonostante siano giuste le dimensioni - test with 26000
+            // TODO: DEBUGGATO OK CON PIù BLOCCHI
             merge_kernel<<<1, blockSize>>>(dev_a + block_dimension[idx_block_start], block_dimension[idx_block_size], dev_thread_offset, n_threads_per_block, num_block * MAXTHREADSPERBLOCK); // GLOBAL MEMORY;
 
-            block_offset[num_block] = block_dimension[idx_block_size] - block_dimension[idx_block_start];
+            if ((num_block % 2) == 0)
+            {
+                // Add the offset of the successive block
+                block_offset[num_block / 2] = block_dimension[idx_block_size] + block_dimension[(num_block + 1) * 2 + 1];
+
+                // Compute mid useful during the first level merge
+                block_mid[num_block / 2] = 0;
+                for (unsigned i = 0; i <= num_block; i++) {
+                    block_mid[num_block / 2] += block_dimension[i * 2 + 1];
+                }
+            }
         }
-        cudaHandleError(cudaMemcpy(dev_block_offset, block_offset, n_blocks_merge * sizeof(unsigned long), cudaMemcpyHostToDevice));
+
+        cudaHandleError(cudaMemcpy(dev_block_offset, block_offset, n_blocks_merge / 2 * sizeof(unsigned long), cudaMemcpyHostToDevice));
+        cudaHandleError(cudaPeekAtLastError());
+        cudaHandleError(cudaMemcpy(dev_block_mid, block_mid, n_blocks_merge / 2 * sizeof(unsigned long), cudaMemcpyHostToDevice));
         cudaHandleError(cudaPeekAtLastError());
         cudaHandleError(cudaDeviceSynchronize());
+
+        // cudaHandleError(cudaMemcpy(a, dev_a, size_array, cudaMemcpyDeviceToHost));
+
+        // for (unsigned long i = 0; i < N; i++)
+        // {
+        //     printf("%lu:%li\n", i, a[i]);
+        // }
+
         if (n_blocks_merge > 1)
         {
-            merge_kernel<<<1, blockSize>>>(dev_a, N, dev_block_offset, n_threads_per_block, 0); // GLOBAL MEMORY;
+            merge_blocks_lists_kernel<<<1, n_blocks_merge / 2>>>(dev_a, N, dev_block_offset, dev_block_mid, n_blocks_merge / 2); // GLOBAL MEMORY;
         }
     }
 
