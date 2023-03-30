@@ -7,7 +7,7 @@ double gettime(void)
     return (ts.tv_sec + (double)ts.tv_nsec / 1e9);
 }
 
-void init_array(long int *data, unsigned long nitems)
+void init_array(unsigned long *data, unsigned long nitems)
 {
     long int temp;
     srand(42); // Ensure the determinism
@@ -27,7 +27,7 @@ void init_array(long int *data, unsigned long nitems)
     }
 }
 
-__host__ __device__ void print_array(long int *data, unsigned long size)
+__host__ __device__ void print_array(unsigned long *data, unsigned long size)
 {
     for (unsigned long i = 0; i < size; i++) {
         printf("%li ", data[i]);
@@ -35,7 +35,7 @@ __host__ __device__ void print_array(long int *data, unsigned long size)
     printf("\n");
 }
 
-int check_result(long int *results, unsigned long nitems)
+int check_result(unsigned long *results, unsigned long nitems)
 {
     for (unsigned long i = 0; i < nitems - 1; i++)
     {
@@ -55,7 +55,7 @@ bool IsPowerOfTwo(unsigned long x)
     return (x & (x - 1)) == 0;
 }
 
-__device__ void get_max(long int *data, unsigned long n, long int *max)
+__device__ void get_max(unsigned long *data, unsigned long n, unsigned long *max)
 {
     *max = -INFINITY;
     for (int i = 0; i < n; i++)

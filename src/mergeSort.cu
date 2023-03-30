@@ -1,6 +1,6 @@
 #include "../lib/mergeSort.cuh"
 
-__host__ __device__ void merge(long int *data, unsigned long left, unsigned long mid, unsigned long right)
+__host__ __device__ void merge(unsigned long *data, unsigned long left, unsigned long mid, unsigned long right)
 {
     unsigned long i, j, k;
     unsigned long dim_left = mid - left + 1;
@@ -61,7 +61,7 @@ __host__ __device__ void merge(long int *data, unsigned long left, unsigned long
     free(temp_right);
 }
 
-__host__ void merge_sort(long int *data, unsigned long left, unsigned long right)
+__host__ void merge_sort(unsigned long*data, unsigned long left, unsigned long right)
 {
     if (left < right)
     {

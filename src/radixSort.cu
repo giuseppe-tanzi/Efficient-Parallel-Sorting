@@ -1,6 +1,6 @@
 #include "../lib/radixSort.cuh"
 
-__device__ void count_sort(long int *data, unsigned long n, int exp)
+__device__ void count_sort(unsigned long *data, unsigned long n, int exp)
 {
     long int *result = (long int *)malloc(n * sizeof(long int)); // output array
     long int i, count[10] = {0};
@@ -33,10 +33,10 @@ __device__ void count_sort(long int *data, unsigned long n, int exp)
     free(result);
 }
 
-__device__ void radix_sort(long int *data, unsigned long n)
+__device__ void radix_sort(unsigned long *data, unsigned long n)
 {
     // Find the maximum number to know number of digits
-    long int m = 0;
+    unsigned long m = 0;
     get_max(data, n, &m);
 
     // Do counting sort for every digit. Note that instead of passing digit number, exp is passed. 
@@ -47,7 +47,7 @@ __device__ void radix_sort(long int *data, unsigned long n)
     }
 }
 
-__global__ void radix_sort_kernel(long int *data, unsigned long n, unsigned offset, const unsigned long n_threads)
+__global__ void radix_sort_kernel(unsigned long *data, unsigned long n, unsigned offset, const unsigned long n_threads)
 {
     const unsigned tid = blockIdx.x * blockDim.x + threadIdx.x;
 
