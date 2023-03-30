@@ -6,7 +6,7 @@
 #include "../lib/radixSort.cuh"
 #include "../lib/mergeSort.cuh"
 
-#define MAXTHREADSPERBLOCK 512
+#define MAXTHREADSPERBLOCK 1024
 #define MAXBLOCKS 65535
 
 /*
@@ -404,12 +404,14 @@ __global__ void merge_blocks_lists_kernel(long int *data, unsigned long n, unsig
             // printf("STEP: %d - TID: %d - LEFT: %lu\n", level_merge, tid, left);
             // printf("STEP: %d - TID: %d - OFFSET_MERGE: %lu\n", level_merge, tid, offset_merge);
             // printf("STEP: %d - TID: %d - MID: %lu\n", level_merge, tid, mid);
-            merge(data, left, mid, right);
-            
-            // for (long k = start; k < left + offset_merge; k++)
+            // if (tid != 1)
             // {
-            //     printf("%lu:%li\n", k, data[k]);
+            //     for (long k = start; k < left + offset_merge; k++)
+            //     {
+            //         printf("%lu:%li\n", k, data[k]);
+            //     }
             // }
+            merge(data, left, mid, right); // TODO: VA IN illegal memory access
 
             // Fix since the two merged list are of two different dimension, because the offset is balanced between threads.
             // Merge sort expects to have mid as maximum value of the first list
@@ -577,7 +579,7 @@ int main(int argc, char *argv[])
     {
         sort_kernel<<<gridSize, blockSize>>>(dev_a, N, partition_size, n_total_threads); // GLOBAL MEMORY
     }
-    else // TODO: PROBLEM WITH 76801 (TWO BLOCKS)
+    else
     {
         /*
         STEPS:
@@ -603,9 +605,9 @@ int main(int argc, char *argv[])
         // {
         //     printf("%lu:%li\n", i, thread_offset[i]);
         // }
-        // printf("N BLOCKs MERGE: %d\n", n_blocks_merge);
+        printf("N BLOCKs MERGE: %d\n", n_blocks_merge);
 
-        for (unsigned num_block = 0; num_block < n_blocks_merge; num_block++) // TODO: TEST WITH N=76801
+        for (unsigned num_block = 0; num_block < n_blocks_merge; num_block++)
         {
             idx_block_start = num_block * 2;
             idx_block_size = idx_block_start + 1;
@@ -627,7 +629,8 @@ int main(int argc, char *argv[])
 
                 // Compute mid useful during the first level merge
                 block_mid[num_block / 2] = 0;
-                for (unsigned i = 0; i <= num_block; i++) {
+                for (unsigned i = 0; i <= num_block; i++)
+                {
                     block_mid[num_block / 2] += block_dimension[i * 2 + 1];
                 }
             }
@@ -648,6 +651,7 @@ int main(int argc, char *argv[])
 
         if (n_blocks_merge > 1)
         {
+            // TODO: PROBLEM WITH 750000 dimension array
             merge_blocks_lists_kernel<<<1, n_blocks_merge / 2>>>(dev_a, N, dev_block_offset, dev_block_mid, n_blocks_merge / 2); // GLOBAL MEMORY;
         }
     }
