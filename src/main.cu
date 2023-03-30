@@ -6,8 +6,9 @@
 #include "../lib/radixSort.cuh"
 #include "../lib/mergeSort.cuh"
 
-#define MAXTHREADSPERBLOCK 768
+#define MAXTHREADSPERBLOCK 512
 #define MAXBLOCKS 65535
+#define PARTITION_SIZE 2048
 
 /*
     Useful to check errors in the cuda kernels
@@ -427,7 +428,7 @@ int main(int argc, char *argv[])
     unsigned long first, last;
     long int *a, *dev_a;
     unsigned long n_threads_per_block = 0, n_blocks = 0, n_total_threads = 0;
-    unsigned partition_size = 50; // TODO: TEMPORARY VALUE - TO CHECK OTHER VALUES
+    unsigned partition_size = PARTITION_SIZE; // TODO: TEMPORARY VALUE - TO CHECK OTHER VALUES
     double tstart = 0, tstop = 0;
 
     // Variables useful during the parallel sorting
@@ -499,7 +500,8 @@ int main(int argc, char *argv[])
     }
     else
     {
-        n_total_threads = ceil(N / float(partition_size));
+        n_total_threads = ceil(N / (float)partition_size);
+        printf("check1\n");
 
         if (n_total_threads <= MAXTHREADSPERBLOCK)
         {
@@ -511,7 +513,7 @@ int main(int argc, char *argv[])
                 if (IsPowerOfTwo(i))
                 {
                     n_total_threads = i;
-                    partition_size = ceil(N / float(n_total_threads));
+                    partition_size = ceil(N / (float)n_total_threads);
                     n_threads_per_block = n_total_threads;
                     break;
                 }
@@ -564,7 +566,6 @@ int main(int argc, char *argv[])
     cudaHandleError(cudaMalloc((void **)&dev_block_mid, n_blocks_merge / 2 * sizeof(unsigned long)));
 
     tstart = gettime();
-    // sort_kernel<<<gridSize, blockSize, size>>>(dev_a, N, partition_size, num_total_threads); //problem with size shared memory
 
     /*
         Two different branch to compute the parallel sorting based on the number of blocks
