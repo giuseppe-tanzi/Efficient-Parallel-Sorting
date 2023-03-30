@@ -32,7 +32,7 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort =
         1. Radix sort
         2. Merge sort
 */
-__global__ void sort_kernel(long int *data, unsigned long n, unsigned offset, const unsigned long n_threads)
+__global__ void sort_kernel(unsigned long *data, unsigned long n, unsigned offset, const unsigned long n_threads)
 {
     // extern __shared__ long int sdata[];
     const unsigned tid = blockIdx.x * blockDim.x + threadIdx.x;
@@ -45,8 +45,9 @@ __global__ void sort_kernel(long int *data, unsigned long n, unsigned offset, co
 
     // Variables useful during the merging phase
     unsigned long temp_n_threads = n_threads; // Variable useful to compute the numbers of levels during the merging phase
-    unsigned level_merge = 0, levels_merge = 0, offset_merge = 0, threads_to_merge = 0;
-    unsigned left = 0, mid = 0, right = 0;
+    unsigned level_merge = 0, levels_merge = 0, threads_to_merge = 0;
+    unsigned long offset_merge = 0;
+    unsigned long left = 0, mid = 0, right = 0;
 
     // Compute new start, end and offset for the thread, computing the offset of precedent threads
     if (tid != 0)
@@ -100,6 +101,8 @@ __global__ void sort_kernel(long int *data, unsigned long n, unsigned offset, co
             levels_merge++;
         }
 
+        printf("Levels merge: %d\n", levels_merge);
+
         // // Load data into shared memory
         // for (long i = start; i < end + 1; i++)
         // {
@@ -142,6 +145,14 @@ __global__ void sort_kernel(long int *data, unsigned long n, unsigned offset, co
                 }
 
                 right = left + offset_merge - 1;
+                printf("STEP: %d - TID: %d - LEFT: %lu\n", level_merge, tid, left);
+                printf("STEP: %d - TID: %d - MID: %lu\n", level_merge, tid, mid);
+                printf("STEP: %d - TID: %d - RIGHT: %lu\n", level_merge, tid, right);
+                printf("STEP: %d - TID: %d - OFFSET: %lu\n", level_merge, tid, offset_merge);
+                for (unsigned long i = left; i < offset_merge; i++)
+                {
+                    printf("STEP: %d - TID: %d - I: %lu - DATA:%lu\n", level_merge, tid, i, data[i]);
+                }
                 merge(data, left, mid, right);
 
                 /*
@@ -270,7 +281,7 @@ void get_start_and_size(unsigned long *block_dimension, unsigned long *offsets, 
 }
 
 // TODO:Comment this function
-__global__ void merge_kernel(long int *data, unsigned long n, const unsigned long *offset, const unsigned long n_threads, const unsigned num_threads_precedent_blocks)
+__global__ void merge_kernel(unsigned long *data, unsigned long n, const unsigned long *offset, const unsigned long n_threads, const unsigned num_threads_precedent_blocks)
 {
     // extern __shared__ long int sdata[];
     const unsigned tid = num_threads_precedent_blocks + threadIdx.x;
@@ -352,7 +363,7 @@ __global__ void merge_kernel(long int *data, unsigned long n, const unsigned lon
     }
 }
 
-__global__ void merge_blocks_lists_kernel(long int *data, unsigned long n, unsigned long *offset, unsigned long *first_mid, const unsigned long n_threads)
+__global__ void merge_blocks_lists_kernel(unsigned long *data, unsigned long n, unsigned long *offset, unsigned long *first_mid, const unsigned long n_threads)
 {
     // extern __shared__ long int sdata[];
     const unsigned tid = threadIdx.x;
@@ -426,7 +437,7 @@ int main(int argc, char *argv[])
 {
     unsigned long N = 512;
     unsigned long first, last;
-    long int *a, *dev_a;
+    unsigned long *a, *dev_a;
     unsigned long n_threads_per_block = 0, n_blocks = 0, n_total_threads = 0;
     unsigned partition_size = PARTITION_SIZE; // TODO: TEMPORARY VALUE - TO CHECK OTHER VALUES
     double tstart = 0, tstop = 0;
@@ -450,9 +461,9 @@ int main(int argc, char *argv[])
 
     first = 0;
     last = N - 1;
-    const size_t size_array = N * sizeof(long int);
+    const size_t size_array = N * sizeof(unsigned long);
 
-    a = (long int *)malloc(size_array);
+    a = (unsigned long *)malloc(size_array);
     cudaHandleError(cudaMalloc((void **)&dev_a, size_array));
 
     // Sequential sorting
@@ -501,7 +512,6 @@ int main(int argc, char *argv[])
     else
     {
         n_total_threads = ceil(N / (float)partition_size);
-        printf("check1\n");
 
         if (n_total_threads <= MAXTHREADSPERBLOCK)
         {
@@ -576,6 +586,8 @@ int main(int argc, char *argv[])
                     - By doing so all the threads in each block performs a merge during the first level of the merging phase
                     - Then, the sorting is called on only one block in order to sort all the portion of array sorted by each block
     */
+    printf("Total threads: %lu\n", n_total_threads);
+    printf("Partition size: %d\n", partition_size);
     if (n_blocks == 1)
     {
         sort_kernel<<<gridSize, blockSize>>>(dev_a, N, partition_size, n_total_threads); // GLOBAL MEMORY
@@ -643,13 +655,6 @@ int main(int argc, char *argv[])
         cudaHandleError(cudaPeekAtLastError());
         cudaHandleError(cudaDeviceSynchronize());
 
-        // cudaHandleError(cudaMemcpy(a, dev_a, size_array, cudaMemcpyDeviceToHost));
-
-        // for (unsigned long i = 0; i < N; i++)
-        // {
-        //     printf("%lu:%li\n", i, a[i]);
-        // }
-
         if (n_blocks_merge > 1)
         {
             // TODO: PROBLEM WITH 750000 dimension array
@@ -659,7 +664,7 @@ int main(int argc, char *argv[])
 
     tstop = gettime();
     cudaHandleError(cudaPeekAtLastError());
-    cudaHandleError(cudaMemcpy(a, dev_a, size_array, cudaMemcpyDeviceToHost));
+    cudaHandleError(cudaMemcpy(a, dev_a, size_array, cudaMemcpyDeviceToHost)); // TODO: PROBLEM WITH N = 639432
     check_result(a, N);
     bzero(a, size_array); // Erase destination buffer
     printf("Elapsed time in seconds: %f\n\n", (tstop - tstart));
