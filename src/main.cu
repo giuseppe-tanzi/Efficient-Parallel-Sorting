@@ -6,6 +6,7 @@
 #include "../lib/radixSort.cuh"
 #include "../lib/mergeSort.cuh"
 
+#define WARPSIZE 32
 #define MAXTHREADSPERBLOCK 512
 #define MAXBLOCKS 65535
 #define PARTITION_SIZE 2048
@@ -101,7 +102,7 @@ __global__ void sort_kernel(unsigned long *data, unsigned long n, unsigned offse
             levels_merge++;
         }
 
-        printf("Levels merge: %d\n", levels_merge);
+        // printf("Levels merge: %d\n", levels_merge);
 
         // // Load data into shared memory
         // for (long i = start; i < end + 1; i++)
@@ -145,14 +146,14 @@ __global__ void sort_kernel(unsigned long *data, unsigned long n, unsigned offse
                 }
 
                 right = left + offset_merge - 1;
-                printf("STEP: %d - TID: %d - LEFT: %lu\n", level_merge, tid, left);
-                printf("STEP: %d - TID: %d - MID: %lu\n", level_merge, tid, mid);
-                printf("STEP: %d - TID: %d - RIGHT: %lu\n", level_merge, tid, right);
-                printf("STEP: %d - TID: %d - OFFSET: %lu\n", level_merge, tid, offset_merge);
-                for (unsigned long i = left; i < offset_merge; i++)
-                {
-                    printf("STEP: %d - TID: %d - I: %lu - DATA:%lu\n", level_merge, tid, i, data[i]);
-                }
+                // printf("STEP: %d - TID: %d - LEFT: %lu\n", level_merge, tid, left);
+                // printf("STEP: %d - TID: %d - MID: %lu\n", level_merge, tid, mid);
+                // printf("STEP: %d - TID: %d - RIGHT: %lu\n", level_merge, tid, right);
+                // printf("STEP: %d - TID: %d - OFFSET: %lu\n", level_merge, tid, offset_merge);
+                // for (unsigned long i = left; i < offset_merge; i++)
+                // {
+                //     printf("STEP: %d - TID: %d - I: %lu - DATA:%lu\n", level_merge, tid, i, data[i]);
+                // }
                 merge(data, left, mid, right);
 
                 /*
@@ -446,12 +447,12 @@ int main(int argc, char *argv[])
     unsigned long n_merge = 0;
     unsigned n_blocks_merge = 0;
 
-    // Variables useful to manage the partition of array to assign to each block during the merging phase
+    // Variables useful to handle the partition of array to assign to each block during the merging phase
     unsigned long idx_block_start = 0;
     unsigned long idx_block_size = 0;
     unsigned long *block_dimension;
 
-    // Variables useful to manage the partition of array to assign at each thread in each block at level 0 during the merging phase
+    // Variables useful to handle the partition of array to assign at each thread in each block at level 0 during the merging phase
     unsigned long *thread_offset, *dev_thread_offset, *block_offset, *dev_block_offset, *block_mid, *dev_block_mid;
 
     if (argc > 1)
@@ -497,16 +498,28 @@ int main(int argc, char *argv[])
     */
     if (N <= partition_size)
     {
-        n_blocks = 1; // TODO:Depends if the partition size is greater than MAXTHREADPERBLOCK
-        for (unsigned long i = N; i >= 2; i--)
+        if (N <= MAXTHREADSPERBLOCK)
         {
-            if (IsPowerOfTwo(i))
+            n_blocks = 1; /* TODO: Depends if the partition size is greater than MAXTHREADPERBLOCK - example (N = 2000 - partition size = 2048 - MAXTHREADS = 512,
+                                                                                                         so it needs more blocks)*/
+            for (unsigned long i = N; i >= 2; i--)
             {
-                n_total_threads = i;
-                partition_size = ceil(N / float(n_total_threads));
-                n_threads_per_block = n_total_threads;
-                break;
+                if (IsPowerOfTwo(i))
+                {
+                    n_total_threads = i;
+                    partition_size = ceil(N / float(n_total_threads));
+                    n_threads_per_block = n_total_threads;
+                    break;
+                }
             }
+        }
+        else
+        {
+            n_threads_per_block = WARPSIZE;
+            n_total_threads = WARPSIZE;
+            n_blocks = 1;
+            partition_size = ceil(N / (float) n_total_threads);
+
         }
     }
     else
@@ -664,7 +677,7 @@ int main(int argc, char *argv[])
 
     tstop = gettime();
     cudaHandleError(cudaPeekAtLastError());
-    cudaHandleError(cudaMemcpy(a, dev_a, size_array, cudaMemcpyDeviceToHost)); // TODO: PROBLEM WITH N = 639432
+    cudaHandleError(cudaMemcpy(a, dev_a, size_array, cudaMemcpyDeviceToHost)); // TODO: PROBLEM WITH N = 639401
     check_result(a, N);
     bzero(a, size_array); // Erase destination buffer
     printf("Elapsed time in seconds: %f\n\n", (tstop - tstart));
