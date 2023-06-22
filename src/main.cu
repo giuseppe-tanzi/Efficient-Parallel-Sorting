@@ -201,7 +201,18 @@ unsigned long get_n_list_to_merge(unsigned long n, unsigned partition, unsigned 
     return n_list_to_merge;
 }
 
-// TODO:Comment this function
+/*
+    Function that is responsible for computing the starting index and size of data blocks for the parallel computation, 
+    given a set of parameters:
+        - block_dimension: A pointer to an array of unsigned long integers representing the block dimensions. The starting index and size of each block will be stored in this array.
+        - offsets: A pointer to an array of unsigned long integers representing the offsets for each thread in each block. The offset for each thread will be accumulated in this array.
+        - n: An unsigned long integer representing the total number of elements in the data.
+        - partition: An unsigned integer representing the size of the partition.
+        - total_blocks: An unsigned integer representing the total number of blocks.
+        - total_threads: An unsigned integer representing the total number of threads.
+    It operates on unsigned long integers and modifies two arrays: block_dimension and offsets.
+    It follows a recursive approach to distribute the workload evenly among the threads and blocks
+*/
 void get_start_and_size(unsigned long *block_dimension, unsigned long *offsets, unsigned long n, unsigned partition, unsigned total_blocks, unsigned total_threads)
 {
     unsigned int idx_start = 0;
@@ -281,7 +292,10 @@ void get_start_and_size(unsigned long *block_dimension, unsigned long *offsets, 
     }
 }
 
-// TODO:Comment this function
+/*
+    The merge_kernel function is a CUDA kernel that performs a merge sort on an array data in parallel.
+    It divides the array into smaller ranges and merges them progressively until the entire array is sorted.
+*/
 __global__ void merge_kernel(unsigned long *data, unsigned long n, const unsigned long *offset, const unsigned long n_threads, const unsigned num_threads_precedent_blocks)
 {
     // extern __shared__ long int sdata[];
@@ -364,6 +378,7 @@ __global__ void merge_kernel(unsigned long *data, unsigned long n, const unsigne
     }
 }
 
+// TODO:Comment this function
 __global__ void merge_blocks_lists_kernel(unsigned long *data, unsigned long n, unsigned long *offset, unsigned long *first_mid, const unsigned long n_threads)
 {
     // extern __shared__ long int sdata[];
@@ -440,7 +455,7 @@ int main(int argc, char *argv[])
     unsigned long first, last;
     unsigned long *a, *dev_a;
     unsigned long n_threads_per_block = 0, n_blocks = 0, n_total_threads = 0;
-    unsigned partition_size = PARTITION_SIZE; // TODO: TEMPORARY VALUE - TO CHECK OTHER VALUES
+    unsigned partition_size = PARTITION_SIZE; 
     double tstart = 0, tstop = 0;
 
     // Variables useful during the parallel sorting
@@ -482,6 +497,7 @@ int main(int argc, char *argv[])
     printf("Parallel implementation:\n");
     init_array(a, N);
     cudaHandleError(cudaMemcpy(dev_a, a, size_array, cudaMemcpyHostToDevice));
+    tstart = gettime();
 
     /*
         Ensures the minimum numbers of necessary thread
@@ -594,8 +610,6 @@ int main(int argc, char *argv[])
     cudaHandleError(cudaMalloc((void **)&dev_block_offset, n_blocks_merge / 2 * sizeof(unsigned long)));
     cudaHandleError(cudaMalloc((void **)&dev_block_mid, n_blocks_merge / 2 * sizeof(unsigned long)));
 
-    tstart = gettime();
-
     /*
         Two different branch to compute the parallel sorting based on the number of blocks
             - First branch: compute the radix sort phase and the merging sort phase in the same kernel
@@ -608,7 +622,7 @@ int main(int argc, char *argv[])
     printf("Total threads: %lu\n", n_total_threads);
     printf("Partition size: %d\n", partition_size);
     if (n_blocks == 1)
-    {
+    {// TODO: PROBLEM WITH 750000 dimension array
         sort_kernel<<<gridSize, blockSize>>>(dev_a, N, partition_size, n_total_threads); // GLOBAL MEMORY
     }
     else
