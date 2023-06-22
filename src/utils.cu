@@ -1,5 +1,6 @@
 #include "../lib/utils.cuh"
 
+/* Function that returns the current time */
 double gettime(void)
 {
     struct timespec ts;
@@ -7,26 +8,28 @@ double gettime(void)
     return (ts.tv_sec + (double)ts.tv_nsec / 1e9);
 }
 
-void init_array(unsigned long *data, unsigned long nitems)
+/* Function that randomly initializes an array from 0 to N */
+void init_array(unsigned long *data, unsigned long N)
 {
     long int temp;
     srand(42); // Ensure the determinism
 
-    for (unsigned long i = 0; i < nitems; i++)
+    for (unsigned long i = 0; i < N; i++)
     {
-        data[i] = nitems - 1 - i;
+        data[i] = N - 1 - i;
     }
 
     /* Random shuffle */
-    for (unsigned long i = 0; i < nitems - 1; i++)
+    for (unsigned long i = 0; i < N - 1; i++)
     {
-        size_t j = i + rand() / (RAND_MAX / (nitems - i) + 1);
+        size_t j = i + rand() / (RAND_MAX / (N - i) + 1);
         temp = data[j];
         data[j] = data[i];
         data[i] = temp;
     }
 }
 
+/* Function that prints an array */
 __host__ __device__ void print_array(unsigned long *data, unsigned long size)
 {
     for (unsigned long i = 0; i < size; i++) {
@@ -35,6 +38,7 @@ __host__ __device__ void print_array(unsigned long *data, unsigned long size)
     printf("\n");
 }
 
+/* Function that checks if the array is ordered */
 int check_result(unsigned long *results, unsigned long nitems)
 {
     for (unsigned long i = 0; i < nitems - 1; i++)
@@ -55,6 +59,7 @@ bool IsPowerOfTwo(unsigned long x)
     return (x & (x - 1)) == 0;
 }
 
+/*Function that finds the maximum number in an array*/
 __device__ void get_max(unsigned long *data, unsigned long n, unsigned long *max)
 {
     *max = -INFINITY;
@@ -67,6 +72,7 @@ __device__ void get_max(unsigned long *data, unsigned long n, unsigned long *max
     }
 }
 
+/*Function useful to compute the base to the power of exp*/
 __device__ void power(int base, int exp, unsigned *result)
 {
     *result = 1;
