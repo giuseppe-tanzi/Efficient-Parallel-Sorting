@@ -500,8 +500,7 @@ int main(int argc, char *argv[])
     {
         if (N <= MAXTHREADSPERBLOCK)
         {
-            n_blocks = 1; /* TODO: Depends if the partition size is greater than MAXTHREADPERBLOCK - example (N = 2000 - partition size = 2048 - MAXTHREADS = 512,
-                                                                                                         so it needs more blocks)*/
+            n_blocks = 1; 
             for (unsigned long i = N; i >= 2; i--)
             {
                 if (IsPowerOfTwo(i))
