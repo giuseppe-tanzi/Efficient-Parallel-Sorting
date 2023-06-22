@@ -500,7 +500,7 @@ int main(int argc, char *argv[])
     {
         if (N <= MAXTHREADSPERBLOCK)
         {
-            n_blocks = 1; 
+            n_blocks = 1;
             for (unsigned long i = N; i >= 2; i--)
             {
                 if (IsPowerOfTwo(i))
@@ -517,8 +517,7 @@ int main(int argc, char *argv[])
             n_threads_per_block = WARPSIZE;
             n_total_threads = WARPSIZE;
             n_blocks = 1;
-            partition_size = ceil(N / (float) n_total_threads);
-
+            partition_size = ceil(N / (float)n_total_threads);
         }
     }
     else
@@ -528,7 +527,15 @@ int main(int argc, char *argv[])
         if (n_total_threads <= MAXTHREADSPERBLOCK)
         {
             n_blocks = 1;
-            n_threads_per_block = n_total_threads;
+            if (n_total_threads < WARPSIZE)
+            {
+                n_total_threads = WARPSIZE;
+                n_threads_per_block = WARPSIZE;
+            }
+            else
+            {
+                n_threads_per_block = n_total_threads;
+            }
 
             for (unsigned long i = n_total_threads; i >= 2; i--)
             {
