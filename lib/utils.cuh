@@ -26,6 +26,3 @@ __device__ void get_max(unsigned long *data, const unsigned long N, unsigned lon
 
 /* Function to get the power of base to exp; it stores the result in result*/
 __device__ void power(int base, int exp, unsigned *result);
-
-void determine_config(const unsigned long N, unsigned long *n_threads_per_block, unsigned long *n_blocks,
-                      unsigned long *n_total_threads, unsigned long *partition_size);
