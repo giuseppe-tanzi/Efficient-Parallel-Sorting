@@ -7,9 +7,9 @@
 #include "../lib/mergeSort.cuh"
 
 #define WARPSIZE 32
-#define MAXTHREADSPERBLOCK 512
+#define MAXTHREADSPERBLOCK 1024
 #define MAXBLOCKS 65535
-#define PARTITION_SIZE 2048
+#define PARTITION_SIZE 8192
 
 /*
     Useful to check errors in the cuda kernels
@@ -449,153 +449,105 @@ __global__ void merge_blocks_lists_kernel(unsigned long *data, unsigned long n, 
     }
 }
 
-int main(int argc, char *argv[])
+void determine_config(unsigned long N, unsigned long* n_threads_per_block, unsigned long* n_blocks,
+                      unsigned long* n_total_threads, unsigned long* partition_size)
 {
-    unsigned long N = 512;
-    unsigned long first, last;
-    unsigned long *a, *dev_a;
-    unsigned long n_threads_per_block = 0, n_blocks = 0, n_total_threads = 0;
-    unsigned partition_size = PARTITION_SIZE; 
-    double tstart = 0, tstop = 0;
 
-    // Variables useful during the parallel sorting
-    unsigned long n_merge = 0;
-    unsigned n_blocks_merge = 0;
+    *partition_size = PARTITION_SIZE;
 
-    // Variables useful to handle the partition of array to assign to each block during the merging phase
-    unsigned long idx_block_start = 0;
-    unsigned long idx_block_size = 0;
-    unsigned long *block_dimension;
-
-    // Variables useful to handle the partition of array to assign at each thread in each block at level 0 during the merging phase
-    unsigned long *thread_offset, *dev_thread_offset, *block_offset, *dev_block_offset, *block_mid, *dev_block_mid;
-
-    if (argc > 1)
-    {
-        N = atoi(argv[1]);
-    }
-
-    first = 0;
-    last = N - 1;
-    const size_t size_array = N * sizeof(unsigned long);
-
-    a = (unsigned long *)malloc(size_array);
-    cudaHandleError(cudaMalloc((void **)&dev_a, size_array));
-
-    // Sequential sorting
-    printf("Sort algorithm on array of %lu elements\n\n", N);
-    printf("Sequential implementation:\n");
-    init_array(a, N);
-    tstart = gettime();
-    merge_sort(a, first, last);
-    tstop = gettime();
-    check_result(a, N);
-    bzero(a, size_array); // Erase destination buffer
-    printf("Elapsed time in seconds: %f\n\n", (tstop - tstart));
-
-    // Parallel sorting
-    printf("Parallel implementation:\n");
-    init_array(a, N);
-    cudaHandleError(cudaMemcpy(dev_a, a, size_array, cudaMemcpyHostToDevice));
-    tstart = gettime();
-
-    /*
-        Ensures the minimum numbers of necessary thread
-            - First branch: N is smaller or equal than the starting partition size of each thread
-                - Starting from the maximum number of thread needed (N), it checks that the number of threads is a power of two,
-                    otherwise the merging phase will not work
-            - Second branch: N is greater than the starting partition size of each thread
-                - It checks that the number of necessary threads is smaller or equal than the number of threads for each block
-                    and it computes the partition size
-                - If the number of necessary threads is smaller than the number of threads for each blocks,
-                    it does the same thing of the first branch starting from the number of necessary thread
-                - Otherwise it computes the number of minimum blocks needed ensuring that the number of threads is a power of 2
-
-    */
-    if (N <= partition_size)
+    if (N <= *partition_size)
     {
         if (N <= MAXTHREADSPERBLOCK)
         {
-            n_blocks = 1;
+            *n_blocks = 1;
             for (unsigned long i = N; i >= 2; i--)
             {
                 if (IsPowerOfTwo(i))
                 {
-                    n_total_threads = i;
-                    partition_size = ceil(N / float(n_total_threads));
-                    n_threads_per_block = n_total_threads;
+                    *n_total_threads = i;
+                    *partition_size = ceil(N / float(*n_total_threads));
+                    *n_threads_per_block = *n_total_threads;
                     break;
                 }
             }
         }
         else
         {
-            n_threads_per_block = WARPSIZE;
-            n_total_threads = WARPSIZE;
-            n_blocks = 1;
-            partition_size = ceil(N / (float)n_total_threads);
+            *n_threads_per_block = WARPSIZE;
+            *n_total_threads = WARPSIZE;
+            *n_blocks = 1;
+            *partition_size = ceil(N / (float)*n_total_threads);
         }
     }
     else
     {
-        n_total_threads = ceil(N / (float)partition_size);
+        *n_total_threads = ceil(N / (float)*partition_size);
 
-        if (n_total_threads <= MAXTHREADSPERBLOCK)
+        if (*n_total_threads <= MAXTHREADSPERBLOCK)
         {
-            n_blocks = 1;
-            if (n_total_threads < WARPSIZE)
+            *n_blocks = 1;
+            if (*n_total_threads < WARPSIZE)
             {
-                n_total_threads = WARPSIZE;
-                n_threads_per_block = WARPSIZE;
+                *n_total_threads = WARPSIZE;
+                *n_threads_per_block = WARPSIZE;
             }
             else
             {
-                n_threads_per_block = n_total_threads;
+                *n_threads_per_block = *n_total_threads;
             }
 
-            for (unsigned long i = n_total_threads; i >= 2; i--)
+            for (unsigned long i = *n_total_threads; i >= 2; i--)
             {
                 if (IsPowerOfTwo(i))
                 {
-                    n_total_threads = i;
-                    partition_size = ceil(N / (float)n_total_threads);
-                    n_threads_per_block = n_total_threads;
+                    *n_total_threads = i;
+                    *partition_size = ceil(N / (float)*n_total_threads);
+                    *n_threads_per_block = *n_total_threads;
                     break;
                 }
             }
         }
         else
         {
-            n_threads_per_block = MAXTHREADSPERBLOCK;
-            n_blocks = ceil(n_total_threads / (float)n_threads_per_block);
+            *n_threads_per_block = MAXTHREADSPERBLOCK;
+            *n_blocks = ceil(*n_total_threads / (float)*n_threads_per_block);
 
-            if (n_blocks > MAXBLOCKS)
+            if (*n_blocks > MAXBLOCKS)
             {
-                n_blocks = MAXBLOCKS;
+                *n_blocks = MAXBLOCKS;
             }
 
-            n_total_threads = (unsigned long)(n_blocks * n_threads_per_block);
+            *n_total_threads = (unsigned long)(*n_blocks * *n_threads_per_block);
 
-            for (unsigned long i = n_total_threads; i >= 2; i--)
+            for (unsigned long i = *n_total_threads; i >= 2; i--)
             {
-                n_blocks = ceil(i / (float)MAXTHREADSPERBLOCK);
-                n_total_threads = (unsigned long)(n_blocks * n_threads_per_block);
+                *n_blocks = ceil(i / (float)MAXTHREADSPERBLOCK);
+                *n_total_threads = (unsigned long)(*n_blocks * *n_threads_per_block);
 
-                if (IsPowerOfTwo(n_total_threads))
+                if (IsPowerOfTwo(*n_total_threads))
                 {
-                    partition_size = ceil(N / (float)n_total_threads);
+                    *partition_size = ceil(N / (float)*n_total_threads);
                     break;
                 }
             }
         }
     }
+}
 
-    dim3 blockSize(n_threads_per_block);
-    dim3 gridSize(n_blocks);
+void parallel_sort(unsigned long *dev_a, const unsigned long N, const unsigned long partition_size, const unsigned long n_total_threads, const unsigned long n_blocks, const unsigned long n_threads_per_block, dim3 gridSize, dim3 blockSize)
+{
+    unsigned long n_merge = 0;
+    unsigned n_blocks_merge = 0;
 
-    printf("NUM_THREADS: %lu\n", n_total_threads);
-    printf("NUM BLOCKS: %lu\n", n_blocks);
-    printf("NUM THREAD PER BLOCK: %lu\n", n_threads_per_block);
+    unsigned long idx_block_start = 0;
+    unsigned long idx_block_size = 0;
+    unsigned long *block_dimension;
+    unsigned long *thread_offset;
+    unsigned long *dev_thread_offset;
+    unsigned long *block_offset;
+    unsigned long *dev_block_offset;
+    unsigned long *block_mid;
+    unsigned long *dev_block_mid;
 
     n_merge = ceil(get_n_list_to_merge(N, partition_size, n_total_threads) / (float)2);
     n_blocks_merge = ceil(n_merge / (float)MAXTHREADSPERBLOCK);
@@ -619,8 +571,7 @@ int main(int argc, char *argv[])
                     - By doing so all the threads in each block performs a merge during the first level of the merging phase
                     - Then, the sorting is called on only one block in order to sort all the portion of array sorted by each block
     */
-    printf("Total threads: %lu\n", n_total_threads);
-    printf("Partition size: %d\n", partition_size);
+
     if (n_blocks == 1)
     {// TODO: PROBLEM WITH 750000 dimension array
         sort_kernel<<<gridSize, blockSize>>>(dev_a, N, partition_size, n_total_threads); // GLOBAL MEMORY
@@ -695,19 +646,72 @@ int main(int argc, char *argv[])
         }
     }
 
-    tstop = gettime();
-    cudaHandleError(cudaPeekAtLastError());
-    cudaHandleError(cudaMemcpy(a, dev_a, size_array, cudaMemcpyDeviceToHost)); // TODO: PROBLEM WITH N = 639401
-    check_result(a, N);
-    bzero(a, size_array); // Erase destination buffer
-    printf("Elapsed time in seconds: %f\n\n", (tstop - tstart));
-
-    // Free memory on host and device
-    free(a);
+    //TODO: Too much time to do cleanup - SOLVE
+    // Cleanup
     free(block_dimension);
     free(thread_offset);
     free(block_offset);
     cudaHandleError(cudaFree(dev_thread_offset));
+}
+
+
+int main(int argc, char *argv[])
+{
+    unsigned long N = 512;
+    unsigned long *a, *dev_a;
+    unsigned long n_threads_per_block = 0, n_blocks = 0, n_total_threads = 0, partition_size = 0;
+    double tstart = 0, tstop = 0;
+
+    if (argc > 1)
+    {
+        N = atoi(argv[1]);
+    }
+
+    const size_t size_array = N * sizeof(unsigned long);
+    a = (unsigned long *)malloc(size_array);
+    cudaHandleError(cudaMalloc((void **)&dev_a, size_array));
+
+    // Sequential sorting
+    printf("Sort algorithm on array of %lu elements\n\n", N);
+    printf("Sequential implementation:\n");
+    init_array(a, N);
+    tstart = gettime();
+    merge_sort(a, 0, N - 1);
+    tstop = gettime();
+    check_result(a, N);
+    bzero(a, size_array); // Erase destination buffer
+    printf("Elapsed time in seconds: %f\n\n", (tstop - tstart));
+
+    // Parallel sorting
+    printf("Parallel implementation:\n");
+    init_array(a, N);
+    cudaHandleError(cudaMemcpy(dev_a, a, size_array, cudaMemcpyHostToDevice));
+    
+    tstart = gettime();
+
+    // Determine block and thread configurations
+    determine_config(N, &n_threads_per_block, &n_blocks, &n_total_threads, &partition_size);
+    dim3 blockSize(n_threads_per_block);
+    dim3 gridSize(n_blocks);
+
+    printf("NUM_THREADS: %lu\n", n_total_threads);
+    printf("NUM BLOCKS: %lu\n", n_blocks);
+    printf("NUM THREAD PER BLOCK: %lu\n", n_threads_per_block);
+    printf("PARTITION SIZE: %lu\n", partition_size);
+
+    // Perform parallel sorting
+    parallel_sort(dev_a, N, partition_size, n_total_threads, n_blocks, n_threads_per_block, gridSize, blockSize);
+
+    tstop = gettime();
+
+    cudaHandleError(cudaPeekAtLastError());
+    cudaHandleError(cudaMemcpy(a, dev_a, size_array, cudaMemcpyDeviceToHost));
+    check_result(a, N);
+    bzero(a, size_array); // Erase destination buffer
+    printf("Elapsed time in seconds: %f\n\n", (tstop - tstart));
+
+    // Cleanup
+    free(a);
     cudaHandleError(cudaFree(dev_a));
 
     return 0;
