@@ -450,6 +450,7 @@ void parallel_sort(unsigned long *dev_a,
                    const unsigned long N, 
                    ParallelSortConfig config,
                    const size_t size_blocks,
+                   unsigned nBlocksMerge,
                    unsigned long *block_dimension, 
                    unsigned long *block_offset, 
                    unsigned long *dev_block_offset, 
@@ -496,15 +497,15 @@ void parallel_sort(unsigned long *dev_a,
 
         // Compute the size of dev_a and where to start
         // TODO: DEBUGGATO OK CON PIù BLOCCHI
-        get_start_and_size(block_dimension, thread_offset, N, config.partitionSize, config.nBlocksMerge, config.nTotalThreads);
+        get_start_and_size(block_dimension, thread_offset, N, config.partitionSize, nBlocksMerge, config.nTotalThreads);
         cudaHandleError(cudaMemcpy(dev_thread_offset, thread_offset, size_blocks, cudaMemcpyHostToDevice));
         // for (unsigned long i = 0; i < n_blocks_merge * MAXTHREADSPERBLOCK; i++)
         // {
         //     printf("%lu:%li\n", i, thread_offset[i]);
         // }
-        printf("N BLOCKs MERGE: %d\n", config.nBlocksMerge);
+        printf("N BLOCKs MERGE: %d\n", nBlocksMerge);
 
-        for (unsigned num_block = 0; num_block < config.nBlocksMerge; num_block++)
+        for (unsigned num_block = 0; num_block < nBlocksMerge; num_block++)
         {
             idx_block_start = num_block * 2;
             idx_block_size = idx_block_start + 1;
@@ -533,16 +534,16 @@ void parallel_sort(unsigned long *dev_a,
             }
         }
 
-        cudaHandleError(cudaMemcpy(dev_block_offset, block_offset, config.nBlocksMerge / 2 * sizeof(unsigned long), cudaMemcpyHostToDevice));
+        cudaHandleError(cudaMemcpy(dev_block_offset, block_offset, nBlocksMerge / 2 * sizeof(unsigned long), cudaMemcpyHostToDevice));
         cudaHandleError(cudaPeekAtLastError());
-        cudaHandleError(cudaMemcpy(dev_block_mid, block_mid, config.nBlocksMerge / 2 * sizeof(unsigned long), cudaMemcpyHostToDevice));
+        cudaHandleError(cudaMemcpy(dev_block_mid, block_mid, nBlocksMerge / 2 * sizeof(unsigned long), cudaMemcpyHostToDevice));
         cudaHandleError(cudaPeekAtLastError());
         cudaHandleError(cudaDeviceSynchronize());
 
-        if (config.nBlocksMerge > 1)
+        if (nBlocksMerge > 1)
         {
             // TODO: PROBLEM WITH 750000 dimension array
-            merge_blocks_lists_kernel<<<1, config.nBlocksMerge / 2>>>(dev_a, N, dev_block_offset, dev_block_mid, config.nBlocksMerge / 2); // GLOBAL MEMORY;
+            merge_blocks_lists_kernel<<<1, nBlocksMerge / 2>>>(dev_a, N, dev_block_offset, dev_block_mid, nBlocksMerge / 2); // GLOBAL MEMORY;
         }
     }
 
@@ -557,7 +558,8 @@ int main(int argc, char *argv[])
 
     // Variables useful for parallel 
     ParallelSortConfig sortConfig;
-    unsigned long n_merge = 0;
+    unsigned long nMerge = 0;
+    unsigned nBlocksMerge = 0;
     unsigned long *block_dimension;
     unsigned long *thread_offset;
     unsigned long *dev_thread_offset;
@@ -601,17 +603,17 @@ int main(int argc, char *argv[])
     sortConfig.blockSize = dim3(sortConfig.nThreadsPerBlock);
     sortConfig.gridSize = dim3(sortConfig.nBlocks);
 
-    n_merge = ceil(get_n_list_to_merge(N, sortConfig.partitionSize, sortConfig.nTotalThreads) / (float)2);
-    sortConfig.nBlocksMerge = ceil(n_merge / (float)MAXTHREADSPERBLOCK);
-    const size_t size_blocks = sortConfig.nBlocksMerge * MAXTHREADSPERBLOCK * sizeof(unsigned long);
+    nMerge = ceil(get_n_list_to_merge(N, sortConfig.partitionSize, sortConfig.nTotalThreads) / (float)2);
+    nBlocksMerge = ceil(nMerge / (float)MAXTHREADSPERBLOCK);
+    const size_t size_blocks = nBlocksMerge * MAXTHREADSPERBLOCK * sizeof(unsigned long);
 
-    block_dimension = (unsigned long *)malloc(sortConfig.nBlocksMerge * 2 * sizeof(unsigned long));
-    block_offset = (unsigned long *)malloc(sortConfig.nBlocksMerge / 2 * sizeof(unsigned long));
-    block_mid = (unsigned long *)malloc(sortConfig.nBlocksMerge / 2 * sizeof(unsigned long));
+    block_dimension = (unsigned long *)malloc(nBlocksMerge * 2 * sizeof(unsigned long));
+    block_offset = (unsigned long *)malloc(nBlocksMerge / 2 * sizeof(unsigned long));
+    block_mid = (unsigned long *)malloc(nBlocksMerge / 2 * sizeof(unsigned long));
     thread_offset = (unsigned long *)malloc(size_blocks);
 
-    cudaHandleError(cudaMalloc((void **)&dev_block_offset, sortConfig.nBlocksMerge / 2 * sizeof(unsigned long)));
-    cudaHandleError(cudaMalloc((void **)&dev_block_mid, sortConfig.nBlocksMerge / 2 * sizeof(unsigned long)));
+    cudaHandleError(cudaMalloc((void **)&dev_block_offset, nBlocksMerge / 2 * sizeof(unsigned long)));
+    cudaHandleError(cudaMalloc((void **)&dev_block_mid, nBlocksMerge / 2 * sizeof(unsigned long)));
     cudaHandleError(cudaMalloc((void **)&dev_thread_offset, size_blocks));
 
     printf("NUM_THREADS: %lu\n", sortConfig.nTotalThreads);
@@ -619,7 +621,7 @@ int main(int argc, char *argv[])
     printf("NUM THREAD PER BLOCK: %lu\n", sortConfig.nThreadsPerBlock);
     printf("PARTITION SIZE: %lu\n", sortConfig.partitionSize);
 
-    parallel_sort(dev_a, N, sortConfig, size_blocks, block_dimension, block_offset, dev_block_offset, block_mid, dev_block_mid, thread_offset, dev_thread_offset);
+    parallel_sort(dev_a, N, sortConfig, size_blocks, nBlocksMerge, block_dimension, block_offset, dev_block_offset, block_mid, dev_block_mid, thread_offset, dev_thread_offset);
 
     tstop = gettime();
 

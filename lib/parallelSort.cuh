@@ -14,7 +14,6 @@ struct ParallelSortConfig
     unsigned long nTotalThreads;
     unsigned long nBlocks;
     unsigned long nThreadsPerBlock;
-    unsigned int nBlocksMerge;
 };
 
 ParallelSortConfig determine_config(const unsigned long N);
