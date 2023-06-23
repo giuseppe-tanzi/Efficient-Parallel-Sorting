@@ -3,7 +3,7 @@
 /* 
     Merge function of the MergeSort Algorithm 
 */
-__host__ __device__ void merge(unsigned long *data, unsigned long left, unsigned long mid, unsigned long right)
+__host__ __device__ void merge(unsigned long *data, const unsigned long left, const unsigned long mid, const unsigned long right)
 {
     unsigned long i, j, k;
     unsigned long dim_left = mid - left + 1;
@@ -67,7 +67,7 @@ __host__ __device__ void merge(unsigned long *data, unsigned long left, unsigned
 /* 
     Merge Sort Algorithm 
 */
-__host__ void merge_sort(unsigned long *data, unsigned long left, unsigned long right)
+__host__ void merge_sort(unsigned long *data, const unsigned long left, const unsigned long right)
 {
     if (left < right)
     {
