@@ -1,0 +1,10 @@
+#ifndef CONSTANTS_H
+#define CONSTANTS_H
+
+#define WARPSIZE 32
+#define MAXTHREADSPERBLOCK 1024
+#define MAXBLOCKS 65535
+#define PARTITION_SIZE 8192
+#define MYLIB_CONSTANTS_H 1
+
+#endif
