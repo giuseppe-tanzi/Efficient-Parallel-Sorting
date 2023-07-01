@@ -1,12 +1,13 @@
 #pragma once
 
-#ifndef CONSTANTS_H
-#define CONSTANTS_H
+#ifndef CONSTANTS_CUH
+#define CONSTANTS_CUH
 
 #define WARPSIZE 32
 #define MAXTHREADSPERBLOCK 1024
 #define MAXBLOCKS 65535
-#define PARTITION_SIZE 8192
-#define MYLIB_CONSTANTS_H 1
+#define PARTITION_SIZE 4096
+#define MIN_VALUE 0
+#define MAX_VALUE 65535
 
 #endif
