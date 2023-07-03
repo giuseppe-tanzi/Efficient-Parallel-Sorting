@@ -68,7 +68,7 @@ __device__ void get_max(unsigned short *data, const unsigned long long N, unsign
     }
 }
 
-__device__ void power(unsigned base, unsigned exp, unsigned long *result)
+__device__ void power(unsigned base, unsigned exp, unsigned *result)
 {
     *result = 1;
     for (;;)

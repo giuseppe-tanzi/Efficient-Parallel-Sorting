@@ -100,7 +100,7 @@ __global__ void sort_kernel(unsigned short *data, unsigned long long n, unsigned
 
     // Variables useful during the merging phase*
     unsigned long temp_n_threads = n_threads; // Variable useful to compute the numbers of levels during the merging phase
-    unsigned long level_merge = 0, levels_merge = 0, threads_to_merge = 0;
+    unsigned level_merge = 0, levels_merge = 0, threads_to_merge = 0;
     unsigned long long offset_merge = 0;
     unsigned long long left = 0, mid = 0, right = 0;
 
