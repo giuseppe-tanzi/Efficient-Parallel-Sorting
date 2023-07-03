@@ -192,7 +192,7 @@ __global__ void sort_kernel(unsigned short *data, unsigned long long n, unsigned
                 }
 
                 right = left + offset_merge - 1;
-                merge(data, left, mid, right);
+                merge_dev(data, left, mid, right);
 
                 /*
                     Merge sort expects to have mid as maximum value of the first list

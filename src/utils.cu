@@ -10,6 +10,20 @@ void gpuAssert(cudaError_t code, const char *file, int line, bool abort)
     }
 }
 
+__device__ void gpuAssert_dev(cudaError_t code, const char *file, int line, bool abort)
+{
+    if (code != cudaSuccess)
+    {
+        const char* errorString = cudaGetErrorString(code);
+
+        printf("GPUerror: %s\nCode: %d\nFile: %s\nLine: %d\n", errorString, code, file, line);
+
+        if (abort)
+            asm("trap;");
+    }
+}
+
+
 double gettime(void)
 {
     struct timespec ts;

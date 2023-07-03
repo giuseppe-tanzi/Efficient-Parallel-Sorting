@@ -6,12 +6,19 @@
 #include <cuda_runtime.h>
 #include "../lib/constants.cuh"
 
-void gpuAssert(cudaError_t code, const char *file, int line, bool abort);
+__host__ void gpuAssert(cudaError_t code, const char *file, int line, bool abort);
+
+__device__ void gpuAssert_dev(cudaError_t code, const char *file, int line, bool abort);
 
 /*
-    Useful to check errors in the cuda kernels
+    Useful to check errors in the cuda kernels on CPU
 */
 #define cudaHandleError(ans) gpuAssert((ans), __FILE__, __LINE__, true)
+
+/*
+    Useful to check errors in the cuda kernels on GPU
+*/
+#define cudaHandleErrorGPU(ans) gpuAssert_dev((ans), __FILE__, __LINE__, true)
 
 /*
     Function that returns the current time

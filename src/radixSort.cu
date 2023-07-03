@@ -2,9 +2,11 @@
 
 __device__ void count_sort(unsigned short *data, const unsigned long long N, const unsigned exp)
 {
-    unsigned short *result = (unsigned short *)malloc(N * sizeof(unsigned short)); // output array
+    unsigned short *result;
     long long i;
     int count[10] = {0};
+
+    cudaHandleErrorGPU(cudaMalloc((void**)&result, N * sizeof(unsigned short))); 
 
     // Store count of occurrences in count[]
     for (i = 0; i < N; i++)
@@ -31,7 +33,7 @@ __device__ void count_sort(unsigned short *data, const unsigned long long N, con
         data[i] = result[i];
     }
 
-    free(result);
+    cudaHandleErrorGPU(cudaFree(result));
 }
 
 __device__ void radix_sort(unsigned short *data, const unsigned long long N)
