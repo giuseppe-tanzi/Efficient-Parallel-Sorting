@@ -233,7 +233,7 @@ __global__ void merge_blocks_lists_kernel(unsigned short *data, unsigned long *t
 
     unsigned i;
 
-    cudaHandleErrorGPU(cudaMalloc((void **)&block_dimension, totalBlocks * sizeof(unsigned long long)));
+    cudaHandleErrorGPU(cudaMalloc((void **)&block_dimension, totalBlocks * 2 * sizeof(unsigned long long)));
     cudaHandleErrorGPU(cudaMalloc((void **)&block_offset, n_threads * sizeof(unsigned long long)));
     cudaHandleErrorGPU(cudaMalloc((void **)&block_mid, n_threads * sizeof(unsigned long long)));
 
