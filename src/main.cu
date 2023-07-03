@@ -45,7 +45,7 @@ unsigned long get_n_list_to_merge(unsigned long long N, unsigned long long parti
     It operates on unsigned long integers and modifies two arrays: block_dimension and offsets.
     It follows a recursive approach to distribute the workload evenly among the threads and blocks
 */
-void get_start_and_size(unsigned long long *block_dimension, unsigned long *offsets, unsigned long long N, unsigned long long partition, unsigned total_blocks, unsigned long total_threads)
+__host__ __device__ void get_start_and_size(unsigned long long *block_dimension, unsigned long *offsets, unsigned long long N, unsigned long long partition, unsigned total_blocks, unsigned long total_threads)
 {
     unsigned long long idx_start = 0;
     unsigned long idx_size = 0;
@@ -211,28 +211,62 @@ __global__ void merge_kernel(unsigned short *data, unsigned long long n, const u
 }
 
 // TODO:Comment this function
-__global__ void merge_blocks_lists_kernel(unsigned short *data, unsigned long long *offset, unsigned long long *first_mid, const unsigned n_threads)
+__global__ void merge_blocks_lists_kernel(unsigned short *data, unsigned long *thread_offset, unsigned long long N, ParallelSortConfig config, const unsigned n_threads)
 {
     // extern __shared__ long int sdata[];
     const unsigned tid = threadIdx.x;
     unsigned long long start = 0;
     unsigned long long end = 0;
+    unsigned long long *block_mid;
+    unsigned long long *block_offset;
+    unsigned long long *block_dimension;
+    unsigned totalBlocks = n_threads * 2;
 
     unsigned long long left, mid, right, offset_merge;
-    unsigned level_merge = 0, levels_merge = 0; // TODO: WRONG COMPUTE OF LEVELS_MERGE
+    unsigned level_merge = 0, levels_merge = 0;
     unsigned long temp_n_threads = n_threads;
     unsigned num_thread_to_merge = 0, threads_to_merge = 0;
 
+    unsigned long long idx_block_start = 0;
+    unsigned long idx_block_size = 0;
+    unsigned long idx_next_block_size = 0;
+
     unsigned i;
+
+    cudaHandleErrorGPU(cudaMalloc((void **)&block_dimension, totalBlocks * sizeof(unsigned long long)));
+    cudaHandleErrorGPU(cudaMalloc((void **)&block_offset, n_threads * sizeof(unsigned long long)));
+    cudaHandleErrorGPU(cudaMalloc((void **)&block_mid, n_threads * sizeof(unsigned long long)));
+
+    get_start_and_size(block_dimension, thread_offset, N, config.partitionSize, totalBlocks, config.nTotalThreads);
+
+    for (unsigned num_block = 0; num_block < totalBlocks; num_block++)
+    {
+        idx_block_start = num_block * 2;
+        idx_block_size = idx_block_start + 1;
+
+        if ((num_block % 2) == 0)
+        {
+            idx_next_block_size = (num_block + 1) * 2 + 1;
+            // Add the offset of the successive block
+            block_offset[num_block / 2] = block_dimension[idx_block_size] + block_dimension[idx_next_block_size];
+
+            // Compute mid useful during the first level merge
+            block_mid[num_block / 2] = 0;
+            for (unsigned i = 0; i <= num_block; i++)
+            {
+                block_mid[num_block / 2] += block_dimension[i * 2 + 1];
+            }
+        }
+    }
 
     // Compute new start, end and offset for the thread, computing the offset of precedent threads
     for (i = 0; i < tid; i++)
     {
-        start += offset[i];
+        start += block_offset[i];
     }
 
-    end = start + offset[tid] - 1;
-    mid = first_mid[tid] - 1;
+    end = start + block_offset[tid] - 1;
+    mid = block_mid[tid] - 1;
 
     // printf("Sono il thread n.ro %lu con last n.ro %lu\n", start, end);
     // printf("TOTALS LEVEL MERGE: %d\n", levels_merge);
@@ -260,11 +294,11 @@ __global__ void merge_blocks_lists_kernel(unsigned short *data, unsigned long lo
         if ((tid % threads_to_merge) == 0)
         {
             left = start;
-            offset_merge = offset[tid];
+            offset_merge = block_offset[tid];
 
             for (num_thread_to_merge = 1; num_thread_to_merge < threads_to_merge; num_thread_to_merge++)
             {
-                offset_merge += offset[tid + num_thread_to_merge];
+                offset_merge += block_offset[tid + num_thread_to_merge];
             }
 
             right = left + offset_merge - 1;
@@ -289,6 +323,10 @@ __global__ void merge_blocks_lists_kernel(unsigned short *data, unsigned long lo
         }
         __syncthreads();
     }
+
+    cudaHandleErrorGPU(cudaFree(block_dimension));
+    cudaHandleErrorGPU(cudaFree(block_offset));
+    cudaHandleErrorGPU(cudaFree(block_mid));
 }
 
 void parallel_sort(unsigned short *dev_a,
@@ -297,10 +335,6 @@ void parallel_sort(unsigned short *dev_a,
                    const size_t size_blocks,
                    unsigned nBlocksMerge,
                    unsigned long long *block_dimension,
-                   unsigned long long *block_offset,
-                   unsigned long long *dev_block_offset,
-                   unsigned long long *block_mid,
-                   unsigned long long *dev_block_mid,
                    unsigned long *thread_offset,
                    unsigned long *dev_thread_offset)
 {
@@ -335,20 +369,18 @@ void parallel_sort(unsigned short *dev_a,
         */
 
         // The data has to be ordered before merging phase
-        // TODO: DEBUGGATO OK CON PIù BLOCCHI
         radix_sort_kernel<<<config.gridSize, config.blockSize>>>(dev_a, N, config.partitionSize, config.nTotalThreads); // GLOBAL MEMORY; TODO: here I could use shared memory with size equal to partition_size
         cudaHandleError(cudaDeviceSynchronize());
         cudaHandleError(cudaPeekAtLastError());
 
         // Compute the size of dev_a and where to start
-        // TODO: DEBUGGATO OK CON PIù BLOCCHI
         get_start_and_size(block_dimension, thread_offset, N, config.partitionSize, nBlocksMerge, config.nTotalThreads);
         cudaHandleError(cudaMemcpy(dev_thread_offset, thread_offset, size_blocks, cudaMemcpyHostToDevice));
         // for (unsigned long i = 0; i < n_blocks_merge * MAXTHREADSPERBLOCK; i++)
         // {
         //     printf("%lu:%li\n", i, thread_offset[i]);
         // }
-        // printf("N BLOCKs MERGE: %d\n", nBlocksMerge);
+        printf("N BLOCKs MERGE: %d\n", nBlocksMerge);
 
         for (unsigned num_block = 0; num_block < nBlocksMerge; num_block++)
         {
@@ -362,35 +394,13 @@ void parallel_sort(unsigned short *dev_a,
             // print_array(a + block_dimension[idx_block_start], block_dimension[idx_block_size]);
 
             // TODO: SICURO SI PUò USARE SHARED MEMORY SUGLI OFFSET
-            // TODO: DEBUGGATO OK CON PIù BLOCCHI
             merge_kernel<<<1, config.blockSize>>>(dev_a + block_dimension[idx_block_start], block_dimension[idx_block_size], dev_thread_offset, config.nThreadsPerBlock, num_block * MAXTHREADSPERBLOCK); // GLOBAL MEMORY;
-
-            if ((num_block % 2) == 0)
-            {
-                // Add the offset of the successive block
-                block_offset[num_block / 2] = block_dimension[idx_block_size] + block_dimension[(num_block + 1) * 2 + 1];
-
-                // Compute mid useful during the first level merge
-                block_mid[num_block / 2] = 0;
-                for (unsigned i = 0; i <= num_block; i++)
-                {
-                    block_mid[num_block / 2] += block_dimension[i * 2 + 1];
-                }
-            }
         }
 
-        // TOO MUCH TIME THIS MEMCPY
-        cudaHandleError(cudaMemcpy(dev_block_offset, block_offset, nBlocksMerge / 2 * sizeof(unsigned long), cudaMemcpyHostToDevice));
-        cudaHandleError(cudaPeekAtLastError());
-
-        cudaHandleError(cudaMemcpy(dev_block_mid, block_mid, nBlocksMerge / 2 * sizeof(unsigned long), cudaMemcpyHostToDevice));
-        cudaHandleError(cudaPeekAtLastError());
-        cudaHandleError(cudaDeviceSynchronize());
-
         if (nBlocksMerge > 1)
-        {
+         {
             // TODO: PROBLEMS IF THE BLOCKS TO MERGE ARE MORE THAN THE MAXIMUM NUMBER OF THREADS IN A SINGLE BLOCK
-            merge_blocks_lists_kernel<<<1, nBlocksMerge / 2>>>(dev_a, dev_block_offset, dev_block_mid, nBlocksMerge / 2); // GLOBAL MEMORY;
+            merge_blocks_lists_kernel<<<1, nBlocksMerge / 2>>>(dev_a, dev_thread_offset, N, config, nBlocksMerge / 2); // GLOBAL MEMORY;
         }
     }
 }
@@ -407,10 +417,6 @@ int main(int argc, char *argv[])
     unsigned long long *block_dimension;
     unsigned long *thread_offset;
     unsigned long *dev_thread_offset;
-    unsigned long long *block_offset;
-    unsigned long long *dev_block_offset;
-    unsigned long long *block_mid;
-    unsigned long long *dev_block_mid;
 
     double tstart = 0, tstop = 0;
 
@@ -454,13 +460,7 @@ int main(int argc, char *argv[])
     // It contains the start id and the size to handle in the array, of each block
     block_dimension = (unsigned long long *)malloc(nBlocksMerge * 2 * sizeof(unsigned long long));
 
-    // It contains the
-    block_offset = (unsigned long long *)malloc(nBlocksMerge / 2 * sizeof(unsigned long long));
-    block_mid = (unsigned long long *)malloc(nBlocksMerge / 2 * sizeof(unsigned long long));
     thread_offset = (unsigned long *)malloc(size_blocks);
-
-    cudaHandleError(cudaMalloc((void **)&dev_block_offset, nBlocksMerge / 2 * sizeof(unsigned long long)));
-    cudaHandleError(cudaMalloc((void **)&dev_block_mid, nBlocksMerge / 2 * sizeof(unsigned long long)));
     cudaHandleError(cudaMalloc((void **)&dev_thread_offset, size_blocks));
 
     // printf("NUM_THREADS: %lu\n", sortConfig.nTotalThreads);
@@ -468,8 +468,7 @@ int main(int argc, char *argv[])
     // printf("NUM THREAD PER BLOCK: %lu\n", sortConfig.nThreadsPerBlock);
     // printf("PARTITION SIZE: %llu\n", sortConfig.partitionSize);
 
-    parallel_sort(dev_a, N, sortConfig, size_blocks, nBlocksMerge, block_dimension, block_offset, dev_block_offset, block_mid, dev_block_mid, thread_offset, dev_thread_offset);
-
+    parallel_sort(dev_a, N, sortConfig, size_blocks, nBlocksMerge, block_dimension, thread_offset, dev_thread_offset);
     tstop = gettime();
 
     cudaHandleError(cudaPeekAtLastError());
@@ -482,11 +481,7 @@ int main(int argc, char *argv[])
     free(a);
     free(block_dimension);
     free(thread_offset);
-    free(block_offset);
-    free(block_mid);
     cudaHandleError(cudaFree(dev_thread_offset));
-    cudaHandleError(cudaFree(dev_block_offset));
-    cudaHandleError(cudaFree(dev_block_mid));
     cudaHandleError(cudaFree(dev_a));
 
     return 0;
