@@ -189,7 +189,7 @@ __global__ void merge_kernel(unsigned short *data, unsigned long long n, const u
                 mid = left + (right - left) / 2; // TODO: FIX MID MAYBE IT IS WRONG
             }
 
-            merge(data, left, mid, right);
+            merge_dev(data, left, mid, right);
             // if (tid == 512 && level_merge == levels_merge)
             // {
             //     printf("STEP: %d - TID: %d - RIGHT: %lu\n", level_merge, tid, right);
@@ -219,7 +219,8 @@ __global__ void merge_blocks_lists_kernel(unsigned short *data, unsigned long lo
     unsigned long long end = 0;
 
     unsigned long long left, mid, right, offset_merge;
-    unsigned level_merge = 0, levels_merge = n_threads;
+    unsigned level_merge = 0, levels_merge = 0; // TODO: WRONG COMPUTE OF LEVELS_MERGE
+    unsigned long temp_n_threads = n_threads;
     unsigned num_thread_to_merge = 0, threads_to_merge = 0;
 
     unsigned i;
@@ -242,8 +243,16 @@ __global__ void merge_blocks_lists_kernel(unsigned short *data, unsigned long lo
     //     sdata[i] = data[i];
     // }
 
+    // Log(n_threads)/Log(2) == Log_2(n_threads)
+    // Compute number of merge needed in the merge sort
+    while (temp_n_threads > 1)
+    {
+        temp_n_threads /= 2;
+        levels_merge++;
+    }
+
     // Merge the sorted array
-    for (level_merge = 0; level_merge < levels_merge; level_merge++)
+    for (level_merge = 0; level_merge <= levels_merge; level_merge++)
     {
 
         power(2, level_merge, &threads_to_merge);
@@ -260,18 +269,19 @@ __global__ void merge_blocks_lists_kernel(unsigned short *data, unsigned long lo
 
             right = left + offset_merge - 1;
 
-            // printf("STEP: %d - TID: %d - RIGHT: %lu\n", level_merge, tid, right);
-            // printf("STEP: %d - TID: %d - LEFT: %lu\n", level_merge, tid, left);
-            // printf("STEP: %d - TID: %d - OFFSET_MERGE: %lu\n", level_merge, tid, offset_merge);
-            // printf("STEP: %d - TID: %d - MID: %lu\n", level_merge, tid, mid);
+            // printf("STEP: %d - TID: %d - RIGHT: %llu\n", level_merge, tid, right);
+            // printf("STEP: %d - TID: %d - MID: %llu\n", level_merge, tid, mid);
+            // printf("STEP: %d - TID: %d - LEFT: %llu\n", level_merge, tid, left);
+            // printf("STEP: %d - TID: %d - OFFSET_MERGE: %llu\n", level_merge, tid, offset_merge);
+            // printf("\n");
             // if (tid != 1)
             // {
-            //     for (long k = start; k < left + offset_merge; k++)
+            //     for (long long k = start; k < left + offset_merge; k++)
             //     {
-            //         printf("%lu:%li\n", k, data[k]);
+            //         printf("%llu:%hu\n", k, data[k]);
             //     }
             // }
-            merge(data, left, mid, right); // TODO: VA IN illegal memory access
+            merge_dev(data, left, mid, right);
 
             // Fix since the two merged list are of two different dimension, because the offset is balanced between threads.
             // Merge sort expects to have mid as maximum value of the first list
@@ -369,15 +379,17 @@ void parallel_sort(unsigned short *dev_a,
             }
         }
 
+        // TOO MUCH TIME THIS MEMCPY
         cudaHandleError(cudaMemcpy(dev_block_offset, block_offset, nBlocksMerge / 2 * sizeof(unsigned long), cudaMemcpyHostToDevice));
         cudaHandleError(cudaPeekAtLastError());
+
         cudaHandleError(cudaMemcpy(dev_block_mid, block_mid, nBlocksMerge / 2 * sizeof(unsigned long), cudaMemcpyHostToDevice));
         cudaHandleError(cudaPeekAtLastError());
         cudaHandleError(cudaDeviceSynchronize());
 
         if (nBlocksMerge > 1)
         {
-            // TODO: PROBLEM WITH 750000 dimension array
+            // TODO: PROBLEMS IF THE BLOCKS TO MERGE ARE MORE THAN THE MAXIMUM NUMBER OF THREADS IN A SINGLE BLOCK
             merge_blocks_lists_kernel<<<1, nBlocksMerge / 2>>>(dev_a, dev_block_offset, dev_block_mid, nBlocksMerge / 2); // GLOBAL MEMORY;
         }
     }
@@ -443,8 +455,8 @@ int main(int argc, char *argv[])
     block_dimension = (unsigned long long *)malloc(nBlocksMerge * 2 * sizeof(unsigned long long));
 
     // It contains the
-    block_offset = (unsigned long long*)malloc(nBlocksMerge / 2 * sizeof(unsigned long long));
-    block_mid = (unsigned long long*)malloc(nBlocksMerge / 2 * sizeof(unsigned long long));
+    block_offset = (unsigned long long *)malloc(nBlocksMerge / 2 * sizeof(unsigned long long));
+    block_mid = (unsigned long long *)malloc(nBlocksMerge / 2 * sizeof(unsigned long long));
     thread_offset = (unsigned long *)malloc(size_blocks);
 
     cudaHandleError(cudaMalloc((void **)&dev_block_offset, nBlocksMerge / 2 * sizeof(unsigned long long)));
