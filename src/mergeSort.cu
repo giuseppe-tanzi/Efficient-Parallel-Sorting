@@ -91,8 +91,6 @@ __device__ void merge_dev(unsigned short *data, const unsigned long long left, c
         temp_right[j] = data[mid + 1 + j];
     }
 
-    // printf("AFTER FIRST FORS\n");
-
     /* Merge the temp arrays back into data[l..r]*/
     i = 0;    // Initial index of first subarray
     j = 0;    // Initial index of second subarray
@@ -112,8 +110,6 @@ __device__ void merge_dev(unsigned short *data, const unsigned long long left, c
         k++;
     }
 
-    // printf("AFTER WHILE LOOP\n");
-
     /* Copy the remaining elements of temp_left[], if there are any */
     while (i < dim_left)
     {
@@ -122,8 +118,6 @@ __device__ void merge_dev(unsigned short *data, const unsigned long long left, c
         k++;
     }
 
-    // printf("AFTER FIRST COPY\n");
-
     /* Copy the remaining elements of temp_right[], if there are any */
     while (j < dim_right)
     {
@@ -131,8 +125,6 @@ __device__ void merge_dev(unsigned short *data, const unsigned long long left, c
         j++;
         k++;
     }
-
-    // printf("AFTER SECOND COPY\n");
 
     /* Free memory */
     cudaHandleErrorGPU(cudaFree(temp_left));
