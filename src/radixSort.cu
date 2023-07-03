@@ -1,9 +1,10 @@
 #include "../lib/radixSort.cuh"
 
-__device__ void count_sort(unsigned long *data, const unsigned long N, const int exp)
+__device__ void count_sort(unsigned short *data, const unsigned long long N, const unsigned exp)
 {
-    long int *result = (long int *)malloc(N * sizeof(long int)); // output array
-    long int i, count[10] = {0};
+    unsigned short *result = (unsigned short *)malloc(N * sizeof(unsigned short)); // output array
+    long long i;
+    int count[10] = {0};
 
     // Store count of occurrences in count[]
     for (i = 0; i < N; i++)
@@ -33,28 +34,28 @@ __device__ void count_sort(unsigned long *data, const unsigned long N, const int
     free(result);
 }
 
-__device__ void radix_sort(unsigned long *data, const unsigned long N)
+__device__ void radix_sort(unsigned short *data, const unsigned long long N)
 {
     // Find the maximum number to know number of digits
-    unsigned long m = 0;
+    unsigned short m = 0;
     get_max(data, N, &m);
 
     // Do counting sort for every digit. Note that instead of passing digit number, exp is passed. 
     // exp is 10^i where i is current digit number
-    for (int exp = 1; m / exp > 0; exp *= 10)
+    for (unsigned exp = 1; m / exp > 0; exp *= 10)
     {
         count_sort(data, N, exp);
     }
 }
 
-__global__ void radix_sort_kernel(unsigned long *data, const unsigned long N, unsigned offset, const unsigned long n_threads)
+__global__ void radix_sort_kernel(unsigned short *data, const unsigned long long N, unsigned long long offset, const unsigned long n_threads)
 {
-    const unsigned tid = blockIdx.x * blockDim.x + threadIdx.x;
+    const unsigned long tid = blockIdx.x * blockDim.x + threadIdx.x;
 
     // Variables useful to compute the portion of array for each thread
-    unsigned long start = tid * offset;
-    unsigned old_offset = 0;
-    unsigned prec_thread = 0;
+    unsigned long long start = tid * offset;
+    unsigned long long old_offset = 0;
+    unsigned long prec_thread = 0;
 
     // Compute new start, end and offset for the thread, computing the offset of precedent threads
     if (tid != 0)

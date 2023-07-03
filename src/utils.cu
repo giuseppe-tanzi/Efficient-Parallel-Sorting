@@ -1,5 +1,15 @@
 #include "../lib/utils.cuh"
 
+void gpuAssert(cudaError_t code, const char *file, int line, bool abort)
+{
+    if (code != cudaSuccess)
+    {
+        fprintf(stderr, "GPUerror: %s\nCode: %d\nFile: %s\nLine: %d\n", cudaGetErrorString(code), code, file, line);
+        if (abort)
+            exit(code);
+    }
+}
+
 /*
     Function that returns the current time
 */
@@ -13,34 +23,24 @@ double gettime(void)
 /*
     Function that randomly initializes an array from 0 to N
 */
-void init_array(unsigned long *data, const unsigned long N)
+void init_array(unsigned short *data, const unsigned long long N)
 {
-    long int temp;
     srand(42); // Ensure the determinism
 
-    for (unsigned long i = 0; i < N; i++)
+    for (unsigned long long i = 0; i < N; i++)
     {
-        data[i] = N - 1 - i;
-    }
-
-    /* Random shuffle */
-    for (unsigned long i = 0; i < N - 1; i++)
-    {
-        size_t j = i + rand() / (RAND_MAX / (N - i) + 1);
-        temp = data[j];
-        data[j] = data[i];
-        data[i] = temp;
+        data[i] = rand() % (MAX_VALUE - MIN_VALUE + 1) + MIN_VALUE;;
     }
 }
 
 /*
     Function that prints an array
 */
-__host__ __device__ void print_array(const unsigned long *data, const unsigned long N)
+__host__ __device__ void print_array(const unsigned short *data, const unsigned long long N) //TODO: delete __device__
 {
-    for (unsigned long i = 0; i < N; i++)
+    for (unsigned long long i = 0; i < N; i++)
     {
-        printf("%li ", data[i]);
+        printf("%hu ", data[i]);
     }
     printf("\n");
 }
@@ -48,14 +48,14 @@ __host__ __device__ void print_array(const unsigned long *data, const unsigned l
 /*
     Function that checks if the array is ordered
 */
-int check_result(unsigned long *results, const unsigned long N)
+int check_result(unsigned short *results, const unsigned long long N)
 {
-    for (unsigned long i = 0; i < N - 1; i++)
+    for (unsigned long long i = 0; i < N - 1; i++)
     {
         if (results[i] > results[i + 1])
         {
-            printf("Check failed: data[%lu] = %li, data[%lu] = %li\n", i, results[i], i + 1, results[i + 1]);
-            printf("%li is greater than %li\n", results[i], results[i + 1]);
+            printf("Check failed: data[%llu] = %hu, data[%llu] = %hu\n", i, results[i], i + 1, results[i + 1]);
+            printf("%hu is greater than %hu\n", results[i], results[i + 1]);
             return 0;
         }
     }
@@ -71,10 +71,10 @@ bool IsPowerOfTwo(const unsigned long x)
 /*
     Function that finds the maximum number in an array
 */
-__device__ void get_max(unsigned long *data, const unsigned long N, unsigned long *max)
+__device__ void get_max(unsigned short *data, const unsigned long long N, unsigned short *max)
 {
     *max = -INFINITY;
-    for (int i = 0; i < N; i++)
+    for (unsigned long long i = 0; i < N; i++)
     {
         if (data[i] > *max)
         {
@@ -86,7 +86,7 @@ __device__ void get_max(unsigned long *data, const unsigned long N, unsigned lon
 /*
     Function useful to compute the base to the power of exp
 */
-__device__ void power(int base, int exp, unsigned *result)
+__device__ void power(unsigned base, unsigned exp, unsigned long *result)
 {
     *result = 1;
     for (;;)

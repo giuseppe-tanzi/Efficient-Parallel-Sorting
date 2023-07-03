@@ -3,15 +3,15 @@
 /* 
     Merge function of the MergeSort Algorithm 
 */
-__host__ __device__ void merge(unsigned long *data, const unsigned long left, const unsigned long mid, const unsigned long right)
+__host__ __device__ void merge(unsigned short *data, const unsigned long long left, const unsigned long long mid, const unsigned long long right)
 {
-    unsigned long i, j, k;
-    unsigned long dim_left = mid - left + 1;
-    unsigned long dim_right = right - mid;
+    unsigned long long i, j, k;
+    unsigned long long dim_left = mid - left + 1;
+    unsigned long long dim_right = right - mid;
 
     /* Create temp arrays */
-    unsigned long *temp_left = (unsigned long *)malloc(dim_left * sizeof(unsigned long));
-    unsigned long *temp_right = (unsigned long *)malloc(dim_right * sizeof(unsigned long));
+    unsigned short *temp_left = (unsigned short *)malloc(dim_left * sizeof(unsigned short));
+    unsigned short *temp_right = (unsigned short *)malloc(dim_right * sizeof(unsigned short));
 
     /* Copy data to temp arrays temp_left[] and temp_right[] */
     for (i = 0; i < dim_left; i++)
@@ -67,12 +67,12 @@ __host__ __device__ void merge(unsigned long *data, const unsigned long left, co
 /* 
     Merge Sort Algorithm 
 */
-__host__ void merge_sort(unsigned long *data, const unsigned long left, const unsigned long right)
+__host__ void merge_sort(unsigned short *data, const unsigned long long left, const unsigned long long right)
 {
     if (left < right)
     {
         // Same as (l+r)/2, but avoids overflow for large l and h
-        unsigned long mid = left + (right - left) / 2;
+        unsigned long long mid = left + (right - left) / 2;
 
         // Sort first half
         merge_sort(data, left, mid);
