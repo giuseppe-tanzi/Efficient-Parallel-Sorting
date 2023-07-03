@@ -72,9 +72,6 @@ __device__ void merge_dev(unsigned short *data, const unsigned long long left, c
     /* Create temp arrays */
     cudaHandleErrorGPU(cudaMalloc((void**)&temp_left, dim_left * sizeof(unsigned short))); 
     cudaHandleErrorGPU(cudaMalloc((void**)&temp_right, dim_right * sizeof(unsigned short)));
-
-    // printf("BEFORE FIRST FORS\n");
-    // printf("DIM LEFT: %llu\n", dim_left);
     
     /* Copy data to temp arrays temp_left[] and temp_right[] */
     for (i = 0; i < dim_left; i++)
@@ -83,8 +80,6 @@ __device__ void merge_dev(unsigned short *data, const unsigned long long left, c
         // printf("%llu: %hu\n", left + dim_left - 1, data[left + dim_left - 1]);
         temp_left[i] = data[left + i];
     }
-
-    // printf("AFTER FIRST FOR\n");
 
     for (j = 0; j < dim_right; j++)
     {
