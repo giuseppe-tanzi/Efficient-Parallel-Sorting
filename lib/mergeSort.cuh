@@ -4,10 +4,12 @@
 #include <stdlib.h>
 #include <cuda_runtime.h>
 
-// Merges two subarrays of data[].
-// First subarray is data[l..m]
-// Second subarray is data[m+1..r]
+/* 
+    Merge function of the MergeSort Algorithm 
+*/
 __host__ __device__ void merge(unsigned short *data, const unsigned long long left, const unsigned long long mid, const unsigned long long right);
 
-/* Function that performs Merge Sort*/
+/* 
+    Merge Sort Algorithm 
+*/
 __host__ void merge_sort(unsigned short *data, const unsigned long long left, const unsigned long long right);

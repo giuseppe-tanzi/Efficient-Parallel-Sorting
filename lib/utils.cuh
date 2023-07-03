@@ -13,23 +13,35 @@ void gpuAssert(cudaError_t code, const char *file, int line, bool abort);
 */
 #define cudaHandleError(ans) gpuAssert((ans), __FILE__, __LINE__, true)
 
-/* Function to get the actual time*/
+/*
+    Function that returns the current time
+*/
 double gettime(void);
 
-/* Initialize array data */
+/*
+    Function that randomly initializes an array from MIN VALUE to MAX VALUE
+*/
 void init_array(unsigned short *data, const unsigned long long N);
 
-/* Function to print an array */
+/*
+    Function that prints an array
+*/
 __host__ __device__ void print_array(const unsigned short *data, const unsigned long long N);
 
-/* Function to check if results is an ordered array */
+/*
+    Function that checks if the array is ordered
+*/
 int check_result(unsigned short *results, const unsigned long long N);
 
 /* Function to check if x is a power of 2*/
 bool IsPowerOfTwo(const unsigned long x);
 
-/* Function to get maximum value in data; it stores the maximum in max */
+/*
+    Function that finds the maximum number in an array
+*/
 __device__ void get_max(unsigned short *data, const unsigned long long N, unsigned short *max);
 
-/* Function to get the power of base to exp; it stores the result in result*/
+/*
+    Function useful to compute the base to the power of exp
+*/
 __device__ void power(unsigned base, unsigned exp, unsigned long *result);

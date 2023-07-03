@@ -1,8 +1,5 @@
 #include "../lib/mergeSort.cuh"
 
-/* 
-    Merge function of the MergeSort Algorithm 
-*/
 __host__ __device__ void merge(unsigned short *data, const unsigned long long left, const unsigned long long mid, const unsigned long long right)
 {
     unsigned long long i, j, k;
@@ -64,9 +61,6 @@ __host__ __device__ void merge(unsigned short *data, const unsigned long long le
     free(temp_right);
 }
 
-/* 
-    Merge Sort Algorithm 
-*/
 __host__ void merge_sort(unsigned short *data, const unsigned long long left, const unsigned long long right)
 {
     if (left < right)

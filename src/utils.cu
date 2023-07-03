@@ -10,9 +10,6 @@ void gpuAssert(cudaError_t code, const char *file, int line, bool abort)
     }
 }
 
-/*
-    Function that returns the current time
-*/
 double gettime(void)
 {
     struct timespec ts;
@@ -20,9 +17,6 @@ double gettime(void)
     return (ts.tv_sec + (double)ts.tv_nsec / 1e9);
 }
 
-/*
-    Function that randomly initializes an array from 0 to N
-*/
 void init_array(unsigned short *data, const unsigned long long N)
 {
     srand(42); // Ensure the determinism
@@ -33,9 +27,6 @@ void init_array(unsigned short *data, const unsigned long long N)
     }
 }
 
-/*
-    Function that prints an array
-*/
 __host__ __device__ void print_array(const unsigned short *data, const unsigned long long N) //TODO: delete __device__
 {
     for (unsigned long long i = 0; i < N; i++)
@@ -45,9 +36,6 @@ __host__ __device__ void print_array(const unsigned short *data, const unsigned 
     printf("\n");
 }
 
-/*
-    Function that checks if the array is ordered
-*/
 int check_result(unsigned short *results, const unsigned long long N)
 {
     for (unsigned long long i = 0; i < N - 1; i++)
@@ -68,9 +56,6 @@ bool IsPowerOfTwo(const unsigned long x)
     return (x & (x - 1)) == 0;
 }
 
-/*
-    Function that finds the maximum number in an array
-*/
 __device__ void get_max(unsigned short *data, const unsigned long long N, unsigned short *max)
 {
     *max = -INFINITY;
@@ -83,9 +68,6 @@ __device__ void get_max(unsigned short *data, const unsigned long long N, unsign
     }
 }
 
-/*
-    Function useful to compute the base to the power of exp
-*/
 __device__ void power(unsigned base, unsigned exp, unsigned long *result)
 {
     *result = 1;
