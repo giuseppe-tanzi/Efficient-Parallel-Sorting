@@ -26,7 +26,7 @@ void init_array(unsigned short *data, const unsigned long long N);
 /*
     Function that prints an array
 */
-__host__ __device__ void print_array(const unsigned short *data, const unsigned long long N);
+__host__ void print_array(const unsigned short *data, const unsigned long long N);
 
 /*
     Function that checks if the array is ordered
