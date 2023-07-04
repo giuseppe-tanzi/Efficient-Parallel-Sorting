@@ -20,8 +20,7 @@ unsigned long get_n_list_to_merge(unsigned long long N, unsigned long long parti
     {
         if ((N - offset) > 0)
         {
-            // ceil((n - offset) / (num_threads - ))
-            offset += (N - offset + (num_threads - thread) - 1) / (num_threads - thread);
+            offset += ceil((N - offset) / (num_threads - thread));
             n_list_to_merge++;
         }
         else
@@ -190,17 +189,6 @@ __global__ void merge_kernel(unsigned short *data, unsigned long long n, const u
             }
 
             merge_dev(data, left, mid, right);
-            // if (tid == 512 && level_merge == levels_merge)
-            // {
-            //     printf("STEP: %d - TID: %d - RIGHT: %lu\n", level_merge, tid, right);
-            //     printf("STEP: %d - TID: %d - LEFT: %lu\n", level_merge, tid, left);
-            //     printf("STEP: %d - TID: %d - OFFSET_MERGE: %lu\n", level_merge, tid, offset_merge);
-            //     printf("STEP: %d - TID: %d - MID: %lu\n", level_merge, tid, mid);
-            //     for (long k = left; k < offset_merge; k++)
-            //     {
-            //         printf("%lu:%li\n", k, data[k]);
-            //     }
-            // }
 
             // Fix since the two merged list are of two different dimension, because the offset is balanced between threads.
             // Merge sort expects to have mid as maximum value of the first list
@@ -315,8 +303,10 @@ __global__ void merge_blocks_lists_kernel(unsigned short *data, unsigned long *t
             //         printf("%llu:%hu\n", k, data[k]);
             //     }
             // }
-            merge_dev(data, left, mid, right);
 
+            // printf("AFTER\n");
+            merge_dev(data, left, mid, right);
+            
             // Fix since the two merged list are of two different dimension, because the offset is balanced between threads.
             // Merge sort expects to have mid as maximum value of the first list
             mid = right;
@@ -329,6 +319,16 @@ __global__ void merge_blocks_lists_kernel(unsigned short *data, unsigned long *t
     cudaHandleErrorGPU(cudaFree(block_mid));
 }
 
+/*
+    Function that performs the parallel sorting
+    Two different branch to compute the parallel sorting based on the number of blocks:
+        - First branch: compute the radix sort phase and the merging sort phase in the same kernel
+        - Second branch: compute the sorting in two different phase
+            - The radix sort is computed on the entire array with the all necessary blocks
+            - The merging phase is computed using a different number of blocks, since the number of necessary threads is smaller
+                - By doing so all the threads in each block performs a merge during the first level of the merging phase
+                - Then, the sorting is called on only one block in order to sort all the portion of array sorted by each block
+*/
 void parallel_sort(unsigned short *dev_a,
                    const unsigned long long N,
                    ParallelSortConfig config,
@@ -342,33 +342,14 @@ void parallel_sort(unsigned short *dev_a,
     unsigned long long idx_block_start = 0;
     unsigned long idx_block_size = 0;
 
-    /*
-        Two different branch to compute the parallel sorting based on the number of blocks
-            - First branch: compute the radix sort phase and the merging sort phase in the same kernel
-            - Second branch: compute the two phase in two distinct moments
-                - The radix sort is computed on the entire array with the all necessary blocks
-                - The merging phase is computed using a different number of blocks, since the number of necessary threads is smaller
-                    - By doing so all the threads in each block performs a merge during the first level of the merging phase
-                    - Then, the sorting is called on only one block in order to sort all the portion of array sorted by each block
-    */
-
     if (config.nBlocks == 1)
     {
         sort_kernel<<<config.gridSize, config.blockSize>>>(dev_a, N, config.partitionSize, config.nTotalThreads); // GLOBAL MEMORY
     }
     else
     {
-        /*
-        STEPS:
-        0. Call the radix sort on the array - DONE
-        1. Compute the numbers of list to merge - DONE
-        2. Get a different portion of the array for each block - DONE
-        3. Write a for-loop in which you call each block on a different portion of the array
-        4. cudaDeviceSynchronize();
-        5. Call a single block to merge the entire array on the different results of the different blocks
-        */
 
-        // The data has to be ordered before merging phase
+        // The data has to be sorted before merging phase
         radix_sort_kernel<<<config.gridSize, config.blockSize>>>(dev_a, N, config.partitionSize, config.nTotalThreads); // GLOBAL MEMORY; TODO: here I could use shared memory with size equal to partition_size
         cudaHandleError(cudaDeviceSynchronize());
         cudaHandleError(cudaPeekAtLastError());
@@ -376,30 +357,27 @@ void parallel_sort(unsigned short *dev_a,
         // Compute the size of dev_a and where to start
         get_start_and_size(block_dimension, thread_offset, N, config.partitionSize, nBlocksMerge, config.nTotalThreads);
         cudaHandleError(cudaMemcpy(dev_thread_offset, thread_offset, size_blocks, cudaMemcpyHostToDevice));
-        // for (unsigned long i = 0; i < n_blocks_merge * MAXTHREADSPERBLOCK; i++)
-        // {
-        //     printf("%lu:%li\n", i, thread_offset[i]);
-        // }
-        printf("N BLOCKs MERGE: %d\n", nBlocksMerge);
 
+        /*
+        It calls the merge kernel on each block
+        Each block has a defined portion of the array to handle and a precise number of lists to merge
+        The array will have nBlocksMerge list to merge at the end of the for-loop
+        */
         for (unsigned num_block = 0; num_block < nBlocksMerge; num_block++)
         {
             idx_block_start = num_block * 2;
             idx_block_size = idx_block_start + 1;
-            // printf("NUM BLOCK MERGE: %d\n", num_block);
-            // printf("START: %lu\n", block_dimension[idx_block_start]);
-            // printf("SIZE %lu\n", block_dimension[idx_block_size]);
-
-            // cudaHandleError(cudaMemcpy(a, dev_a, size_array, cudaMemcpyDeviceToHost));
-            // print_array(a + block_dimension[idx_block_start], block_dimension[idx_block_size]);
 
             // TODO: SICURO SI PUò USARE SHARED MEMORY SUGLI OFFSET
             merge_kernel<<<1, config.blockSize>>>(dev_a + block_dimension[idx_block_start], block_dimension[idx_block_size], dev_thread_offset, config.nThreadsPerBlock, num_block * MAXTHREADSPERBLOCK); // GLOBAL MEMORY;
         }
 
+        /*
+        It performs the last merging phase with only one block since the number of lists to sort are surely 
+        less than the maximum thread number for each block
+        */
         if (nBlocksMerge > 1)
          {
-            // TODO: PROBLEMS IF THE BLOCKS TO MERGE ARE MORE THAN THE MAXIMUM NUMBER OF THREADS IN A SINGLE BLOCK
             merge_blocks_lists_kernel<<<1, nBlocksMerge / 2>>>(dev_a, dev_thread_offset, N, config, nBlocksMerge / 2); // GLOBAL MEMORY;
         }
     }
@@ -453,28 +431,41 @@ int main(int argc, char *argv[])
     sortConfig.blockSize = dim3(sortConfig.nThreadsPerBlock);
     sortConfig.gridSize = dim3(sortConfig.nBlocks);
 
+    /* 
+    First I get how many sorted list I have at level 0
+    Then I divide by 2 to have the number of merge that I'm going to have at level 0
+    */
     nMerge = ceil(get_n_list_to_merge(N, sortConfig.partitionSize, sortConfig.nTotalThreads) / (float)2);
+
+    /*
+    The number of blocks needed during the merging phase
+    */
     nBlocksMerge = ceil(nMerge / (float)MAXTHREADSPERBLOCK);
     const size_t size_blocks = nBlocksMerge * MAXTHREADSPERBLOCK * sizeof(unsigned long);
 
-    // It contains the start id and the size to handle in the array, of each block
+    /*
+    It contains the start and the size to handle in the array, of each block
+    nBlocksMerge * 2 (one cell to store the start in the array and ome cell to store the size to handle in the array)
+    */
     block_dimension = (unsigned long long *)malloc(nBlocksMerge * 2 * sizeof(unsigned long long));
 
     thread_offset = (unsigned long *)malloc(size_blocks);
     cudaHandleError(cudaMalloc((void **)&dev_thread_offset, size_blocks));
 
-    // printf("NUM_THREADS: %lu\n", sortConfig.nTotalThreads);
-    // printf("NUM BLOCKS: %lu\n", sortConfig.nBlocks);
-    // printf("NUM THREAD PER BLOCK: %lu\n", sortConfig.nThreadsPerBlock);
-    // printf("PARTITION SIZE: %llu\n", sortConfig.partitionSize);
-
     parallel_sort(dev_a, N, sortConfig, size_blocks, nBlocksMerge, block_dimension, thread_offset, dev_thread_offset);
+
     tstop = gettime();
 
     cudaHandleError(cudaPeekAtLastError());
     cudaHandleError(cudaMemcpy(a, dev_a, size_array, cudaMemcpyDeviceToHost));
     check_result(a, N);
     bzero(a, size_array); // Erase destination buffer
+
+    printf("NUM_THREADS: %lu\n", sortConfig.nTotalThreads);
+    printf("NUM BLOCKS: %lu\n", sortConfig.nBlocks);
+    printf("NUM THREAD PER BLOCK: %lu\n", sortConfig.nThreadsPerBlock);
+    printf("NUM BLOCKS MERGE: %d\n", nBlocksMerge);
+    printf("PARTITION SIZE: %llu\n", sortConfig.partitionSize);
     printf("Elapsed time in seconds: %f\n\n", (tstop - tstart));
 
     // Cleanup
