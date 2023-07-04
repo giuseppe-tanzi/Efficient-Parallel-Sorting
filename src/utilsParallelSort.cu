@@ -14,7 +14,7 @@ ParallelSortConfig determine_config(const unsigned long long N)
             config.nBlocks = 1;
             for (unsigned long long i = N; i >= 2; i--)
             {
-                if (IsPowerOfTwo(i))
+                if (is_power_of_two(i))
                 {
                     config.nTotalThreads = i;
                     config.partitionSize = ceil(N / float(config.nTotalThreads));
@@ -50,7 +50,7 @@ ParallelSortConfig determine_config(const unsigned long long N)
 
             for (unsigned long i = config.nTotalThreads; i >= 2; i--)
             {
-                if (IsPowerOfTwo(i))
+                if (is_power_of_two(i))
                 {
                     config.nTotalThreads = i;
                     config.partitionSize = ceil(N / (float)config.nTotalThreads);
@@ -76,7 +76,7 @@ ParallelSortConfig determine_config(const unsigned long long N)
                 config.nBlocks = ceil(i / (float)MAXTHREADSPERBLOCK);
                 config.nTotalThreads = (unsigned long)(config.nBlocks * config.nThreadsPerBlock);
 
-                if (IsPowerOfTwo(config.nTotalThreads))
+                if (is_power_of_two(config.nTotalThreads))
                 {
                     config.partitionSize = ceil(N / (float)config.nTotalThreads);
                     break;
@@ -88,16 +88,16 @@ ParallelSortConfig determine_config(const unsigned long long N)
     return config;
 }
 
-unsigned long get_n_list_to_merge(unsigned long long N, unsigned long long partition, unsigned long num_threads)
+unsigned long get_n_list_to_merge(unsigned long long N, unsigned long long partition, unsigned long total_threads)
 {
     unsigned long thread = 0;
     unsigned long long offset = partition, n_list_to_merge = 1;
 
-    for (thread = 1; thread < num_threads; thread++)
+    for (thread = 1; thread < total_threads; thread++)
     {
         if ((N - offset) > 0)
         {
-            offset += ceil((N - offset) / (num_threads - thread));
+            offset += ceil((N - offset) / (total_threads - thread));
             n_list_to_merge++;
         }
         else

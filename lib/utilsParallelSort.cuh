@@ -26,7 +26,7 @@ ParallelSortConfig determine_config(const unsigned long long N);
 /*
     Function that returns the number of lists to merge at level 0 of the merging phase
 */
-unsigned long get_n_list_to_merge(unsigned long long N, unsigned long long partition, unsigned long num_threads);
+unsigned long get_n_list_to_merge(unsigned long long N, unsigned long long partition, unsigned long total_threads);
 
 /*
     Function that is responsible for computing the starting index and size of data blocks for the parallel computation,
