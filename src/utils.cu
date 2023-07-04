@@ -24,7 +24,7 @@ __device__ void gpuAssert_dev(cudaError_t code, const char *file, int line, bool
 }
 
 
-double gettime(void)
+double get_time(void)
 {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -50,14 +50,14 @@ __host__ void print_array(const unsigned short *data, const unsigned long long N
     printf("\n");
 }
 
-int check_result(unsigned short *results, const unsigned long long N)
+int check_result(unsigned short *result, const unsigned long long N)
 {
     for (unsigned long long i = 0; i < N - 1; i++)
     {
-        if (results[i] > results[i + 1])
+        if (result[i] > result[i + 1])
         {
-            printf("Check failed: data[%llu] = %hu, data[%llu] = %hu\n", i, results[i], i + 1, results[i + 1]);
-            printf("%hu is greater than %hu\n", results[i], results[i + 1]);
+            printf("Check failed: data[%llu] = %hu, data[%llu] = %hu\n", i, result[i], i + 1, result[i + 1]);
+            printf("%hu is greater than %hu\n", result[i], result[i + 1]);
             return 0;
         }
     }
@@ -65,7 +65,7 @@ int check_result(unsigned short *results, const unsigned long long N)
     return 1;
 }
 
-bool IsPowerOfTwo(const unsigned long x)
+bool is_power_of_two(const unsigned long x)
 {
     return (x & (x - 1)) == 0;
 }

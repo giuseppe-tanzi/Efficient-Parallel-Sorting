@@ -29,7 +29,7 @@ __device__ void gpuAssert_dev(cudaError_t code, const char *file, int line, bool
 /*
     Function that returns the current time
 */
-double gettime(void);
+double get_time(void);
 
 /*
     Function that randomly initializes an array from MIN VALUE to MAX VALUE
@@ -44,12 +44,12 @@ __host__ void print_array(const unsigned short *data, const unsigned long long N
 /*
     Function that checks if the array is ordered
 */
-int check_result(unsigned short *results, const unsigned long long N);
+int check_result(unsigned short *result, const unsigned long long N);
 
 /* 
     Function to check if x is a power of 2
 */
-bool IsPowerOfTwo(const unsigned long x);
+bool is_power_of_two(const unsigned long x);
 
 /*
     Function that finds the maximum number in an array
