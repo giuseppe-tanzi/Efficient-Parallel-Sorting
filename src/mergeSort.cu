@@ -76,8 +76,6 @@ __device__ void merge_dev(unsigned short *data, const unsigned long long left, c
     /* Copy data to temp arrays temp_left[] and temp_right[] */
     for (i = 0; i < dim_left; i++)
     {
-        // printf("%llu: %hu\n", left+i, data[left + i]);
-        // printf("%llu: %hu\n", left + dim_left - 1, data[left + dim_left - 1]);
         temp_left[i] = data[left + i];
     }
 
