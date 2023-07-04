@@ -50,14 +50,14 @@ __device__ void radix_sort(unsigned short *data, const unsigned long long N)
     }
 }
 
-__global__ void radix_sort_kernel(unsigned short *data, const unsigned long long N, unsigned long long offset, const unsigned long n_threads)
+__global__ void radix_sort_kernel(unsigned short *data, const unsigned long long N, unsigned long long offset, const unsigned long total_threads)
 {
     const unsigned long tid = blockIdx.x * blockDim.x + threadIdx.x;
 
     // Variables useful to compute the portion of array for each thread
     unsigned long long start = tid * offset;
     unsigned long long old_offset = 0;
-    unsigned long prec_thread = 0;
+    unsigned long precedent_thread = 0;
 
     // Compute new start, end and offset for the thread, computing the offset of precedent threads
     if (tid != 0)
@@ -71,7 +71,7 @@ __global__ void radix_sort_kernel(unsigned short *data, const unsigned long long
         {
             start = 0;
             old_offset = offset;
-            for (prec_thread = 1; prec_thread < tid; prec_thread++)
+            for (precedent_thread = 1; precedent_thread < tid; precedent_thread++)
             {
                 /*
                     This if-else is useful if there are more thread than needed:
@@ -79,8 +79,8 @@ __global__ void radix_sort_kernel(unsigned short *data, const unsigned long long
                 */
                 if ((N - old_offset) > 0)
                 {
-                    // ceil((n - old_offset/n_threads - prec_thread))
-                    old_offset += (N - old_offset + (n_threads - prec_thread) - 1) / (n_threads - prec_thread);
+                    // ceil((n - old_offset/total_threads - prec_thread))
+                    old_offset += (N - old_offset + (total_threads - precedent_thread) - 1) / (total_threads - precedent_thread);
                 }
                 else
                 {
@@ -90,8 +90,8 @@ __global__ void radix_sort_kernel(unsigned short *data, const unsigned long long
             start = old_offset;
         }
 
-        // ceil((n - start) / (n_threads - tid))
-        offset = (N - start + (n_threads - tid) - 1) / (n_threads - tid);
+        // ceil((n - start) / (total_threads - tid))
+        offset = (N - start + (total_threads - tid) - 1) / (total_threads - tid);
     }
 
     // More threads than needed
