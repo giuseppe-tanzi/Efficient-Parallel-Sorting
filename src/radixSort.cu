@@ -75,9 +75,9 @@ __global__ void radix_sort_kernel(unsigned short *data, const unsigned long long
             {
                 /*
                     This if-else is useful if there are more thread than needed:
-                        - Ensures that no necessary thread remain in idle
+                        - Ensures that no necessary threads remain in idle
                 */
-                if ((N - old_offset) > 0) // MORE THREAD THAN NEEDED
+                if ((N - old_offset) > 0)
                 {
                     // ceil((n - old_offset/n_threads - prec_thread))
                     old_offset += (N - old_offset + (n_threads - prec_thread) - 1) / (n_threads - prec_thread);
@@ -94,7 +94,8 @@ __global__ void radix_sort_kernel(unsigned short *data, const unsigned long long
         offset = (N - start + (n_threads - tid) - 1) / (n_threads - tid);
     }
 
-    if ((N - old_offset) > 0) // MORE THREAD THAN NEEDED
+    // More threads than needed
+    if ((N - old_offset) > 0) 
     {
         radix_sort(&data[start], offset);
     }
