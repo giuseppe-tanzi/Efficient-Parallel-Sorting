@@ -6,8 +6,14 @@
 #include <cuda_runtime.h>
 #include "../lib/constants.cuh"
 
+/*
+    Useful to check errors in the cuda kernels on CPU
+*/
 __host__ void gpuAssert(cudaError_t code, const char *file, int line, bool abort);
 
+/*
+    Useful to check errors in the cuda kernels on GPU
+*/
 __device__ void gpuAssert_dev(cudaError_t code, const char *file, int line, bool abort);
 
 /*
@@ -40,7 +46,9 @@ __host__ void print_array(const unsigned short *data, const unsigned long long N
 */
 int check_result(unsigned short *results, const unsigned long long N);
 
-/* Function to check if x is a power of 2*/
+/* 
+    Function to check if x is a power of 2
+*/
 bool IsPowerOfTwo(const unsigned long x);
 
 /*

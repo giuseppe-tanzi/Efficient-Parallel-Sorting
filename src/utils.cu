@@ -41,7 +41,7 @@ void init_array(unsigned short *data, const unsigned long long N)
     }
 }
 
-__host__ void print_array(const unsigned short *data, const unsigned long long N) //TODO: delete __device__
+__host__ void print_array(const unsigned short *data, const unsigned long long N)
 {
     for (unsigned long long i = 0; i < N; i++)
     {
