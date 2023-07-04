@@ -5,80 +5,80 @@ ParallelSortConfig determine_config(const unsigned long long N)
 
     ParallelSortConfig config;
 
-    config.partitionSize = PARTITION_SIZE;
+    config.partition_size = PARTITION_SIZE;
 
-    if (N <= config.partitionSize)
+    if (N <= config.partition_size)
     {
         if (N <= MAXTHREADSPERBLOCK)
         {
-            config.nBlocks = 1;
+            config.total_blocks = 1;
             for (unsigned long long i = N; i >= 2; i--)
             {
                 if (is_power_of_two(i))
                 {
-                    config.nTotalThreads = i;
-                    config.partitionSize = ceil(N / float(config.nTotalThreads));
-                    config.nThreadsPerBlock = config.nTotalThreads;
+                    config.total_threads = i;
+                    config.partition_size = ceil(N / float(config.total_threads));
+                    config.threads_per_block = config.total_threads;
                     break;
                 }
             }
         }
         else
         {
-            config.nThreadsPerBlock = WARPSIZE;
-            config.nTotalThreads = WARPSIZE;
-            config.nBlocks = 1;
-            config.partitionSize = ceil(N / (float)config.nTotalThreads);
+            config.threads_per_block = WARPSIZE;
+            config.total_threads = WARPSIZE;
+            config.total_blocks = 1;
+            config.partition_size = ceil(N / (float)config.total_threads);
         }
     }
     else
     {
-        config.nTotalThreads = ceil(N / (float)config.partitionSize);
+        config.total_threads = ceil(N / (float)config.partition_size);
 
-        if (config.nTotalThreads <= MAXTHREADSPERBLOCK)
+        if (config.total_threads <= MAXTHREADSPERBLOCK)
         {
-            config.nBlocks = 1;
-            if (config.nTotalThreads < WARPSIZE)
+            config.total_blocks = 1;
+            if (config.total_threads < WARPSIZE)
             {
-                config.nTotalThreads = WARPSIZE;
-                config.nThreadsPerBlock = WARPSIZE;
+                config.total_threads = WARPSIZE;
+                config.threads_per_block = WARPSIZE;
             }
             else
             {
-                config.nThreadsPerBlock = config.nTotalThreads;
+                config.threads_per_block = config.total_threads;
             }
 
-            for (unsigned long i = config.nTotalThreads; i >= 2; i--)
+            for (unsigned long i = config.total_threads; i >= 2; i--)
             {
                 if (is_power_of_two(i))
                 {
-                    config.nTotalThreads = i;
-                    config.partitionSize = ceil(N / (float)config.nTotalThreads);
-                    config.nThreadsPerBlock = config.nTotalThreads;
+                    config.total_threads = i;
+                    config.partition_size = ceil(N / (float)config.total_threads);
+                    config.threads_per_block = config.total_threads;
                     break;
                 }
             }
         }
         else
         {
-            config.nThreadsPerBlock = MAXTHREADSPERBLOCK;
-            config.nBlocks = ceil(config.nTotalThreads / (float)config.nThreadsPerBlock);
+            config.threads_per_block = MAXTHREADSPERBLOCK;
+            config.total_blocks = ceil(config.total_threads / (float)config.threads_per_block);
 
-            if (config.nBlocks > MAXBLOCKS)
+            if (config.total_blocks > MAXBLOCKS)
             {
-                config.nBlocks = MAXBLOCKS;
+                config.total_blocks = MAXBLOCKS;
             }
 
-            config.nTotalThreads = (unsigned long)(config.nBlocks * config.nThreadsPerBlock);
+            config.total_threads = (unsigned long)(config.total_blocks * config.threads_per_block);
 
-            for (unsigned long i = config.nTotalThreads; i >= 2; i--)
+            for (unsigned long i = config.total_threads; i >= 2; i--)
             {
-                config.nBlocks = ceil(i / (float)MAXTHREADSPERBLOCK);
-                config.nTotalThreads = (unsigned long)(config.nBlocks * config.nThreadsPerBlock);
+                config.total_blocks = ceil(i / (float)MAXTHREADSPERBLOCK);
+                config.total_threads = (unsigned long)(config.total_blocks * config.threads_per_block);
 
-                if (is_power_of_two(config.nTotalThreads))
+                if (is_power_of_two(config.total_threads))
                 {
-                    config.partitionSize = ceil(N / (float)config.nTotalThreads);
+                    config.partition_size = ceil(N / (float)config.total_threads);
                     break;
                 }
             }
@@ -91,14 +91,14 @@ ParallelSortConfig determine_config(const unsigned long long N)
 unsigned long get_n_list_to_merge(unsigned long long N, unsigned long long partition, unsigned long total_threads)
 {
     unsigned long thread = 0;
-    unsigned long long offset = partition, n_list_to_merge = 1;
+    unsigned long long offset = partition, lists_to_merge = 1;
 
     for (thread = 1; thread < total_threads; thread++)
     {
         if ((N - offset) > 0)
         {
             offset += ceil((N - offset) / (total_threads - thread));
-            n_list_to_merge++;
+            lists_to_merge++;
         }
         else
         {
@@ -106,7 +106,7 @@ unsigned long get_n_list_to_merge(unsigned long long N, unsigned long long parti
         }
     }
 
-    return n_list_to_merge;
+    return lists_to_merge;
 }
 
 __host__ __device__ void get_start_and_size(unsigned long long *block_dimension, unsigned long *offsets, unsigned long long N, unsigned long long partition, unsigned total_blocks, unsigned long total_threads)
