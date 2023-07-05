@@ -1,93 +1,5 @@
 #include "../lib/parallelSort.cuh"
 
-ParallelSortConfig determine_config(const unsigned long long N)
-{
-
-    ParallelSortConfig config;
-
-    config.partitionSize = PARTITION_SIZE;
-
-    if (N <= config.partitionSize)
-    {
-        if (N <= MAXTHREADSPERBLOCK)
-        {
-            config.nBlocks = 1;
-            for (unsigned long long i = N; i >= 2; i--)
-            {
-                if (IsPowerOfTwo(i))
-                {
-                    config.nTotalThreads = i;
-                    config.partitionSize = ceil(N / float(config.nTotalThreads));
-                    config.nThreadsPerBlock = config.nTotalThreads;
-                    break;
-                }
-            }
-        }
-        else
-        {
-            config.nThreadsPerBlock = WARPSIZE;
-            config.nTotalThreads = WARPSIZE;
-            config.nBlocks = 1;
-            config.partitionSize = ceil(N / (float)config.nTotalThreads);
-        }
-    }
-    else
-    {
-        config.nTotalThreads = ceil(N / (float)config.partitionSize);
-
-        if (config.nTotalThreads <= MAXTHREADSPERBLOCK)
-        {
-            config.nBlocks = 1;
-            if (config.nTotalThreads < WARPSIZE)
-            {
-                config.nTotalThreads = WARPSIZE;
-                config.nThreadsPerBlock = WARPSIZE;
-            }
-            else
-            {
-                config.nThreadsPerBlock = config.nTotalThreads;
-            }
-
-            for (unsigned long i = config.nTotalThreads; i >= 2; i--)
-            {
-                if (IsPowerOfTwo(i))
-                {
-                    config.nTotalThreads = i;
-                    config.partitionSize = ceil(N / (float)config.nTotalThreads);
-                    config.nThreadsPerBlock = config.nTotalThreads;
-                    break;
-                }
-            }
-        }
-        else
-        {
-            config.nThreadsPerBlock = MAXTHREADSPERBLOCK;
-            config.nBlocks = ceil(config.nTotalThreads / (float)config.nThreadsPerBlock);
-
-            if (config.nBlocks > MAXBLOCKS)
-            {
-                config.nBlocks = MAXBLOCKS;
-            }
-
-            config.nTotalThreads = (unsigned long)(config.nBlocks * config.nThreadsPerBlock);
-
-            for (unsigned long i = config.nTotalThreads; i >= 2; i--)
-            {
-                config.nBlocks = ceil(i / (float)MAXTHREADSPERBLOCK);
-                config.nTotalThreads = (unsigned long)(config.nBlocks * config.nThreadsPerBlock);
-
-                if (IsPowerOfTwo(config.nTotalThreads))
-                {
-                    config.partitionSize = ceil(N / (float)config.nTotalThreads);
-                    break;
-                }
-            }
-        }
-    }
-
-    return config;
-}
-
 __global__ void sort_kernel(unsigned short *data, unsigned long long n, unsigned long long offset, const unsigned long n_threads)
 {
     const unsigned long tid = blockIdx.x * blockDim.x + threadIdx.x;
@@ -205,5 +117,67 @@ __global__ void sort_kernel(unsigned short *data, unsigned long long n, unsigned
             // Needed since the lists to merge to the next level_merge must be ordered
             __syncthreads();
         }
+    }
+}
+
+__global__ void merge_kernel(unsigned short *data, const unsigned long *offset, const unsigned long total_threads, const unsigned long total_threads_precedent_blocks)
+{
+    const unsigned long tid = total_threads_precedent_blocks + threadIdx.x;
+    unsigned long long start = 0;
+
+    unsigned long long left, mid, right, offset_merge;
+    unsigned level_merge = 0, levels_merge = 0;
+    unsigned long temp_total_threads = total_threads;
+    unsigned num_thread_to_merge = 0, threads_to_merge = 0;
+
+    unsigned long i;
+
+    // Compute the start for the thread, computing the offset of precedent threads
+    for (i = total_threads_precedent_blocks; i < tid; i++)
+    {
+        start += offset[i];
+    }
+
+    /*
+        Log(total_threads)/Log(2) == Log_2(total_threads)
+        Compute number of merge needed in the merge sort
+    */
+    while (temp_total_threads > 1)
+    {
+        temp_total_threads /= 2;
+        levels_merge++;
+    }
+
+    // Merge the sorted array
+    for (level_merge = 0; level_merge <= levels_merge; level_merge++)
+    {
+        power(2, level_merge, &threads_to_merge);
+
+        if ((tid % threads_to_merge) == 0)
+        {
+            left = start;
+            offset_merge = offset[tid];
+
+            for (num_thread_to_merge = 1; num_thread_to_merge < threads_to_merge; num_thread_to_merge++)
+            {
+                offset_merge += offset[tid + num_thread_to_merge];
+            }
+
+            right = left + offset_merge - 1;
+
+            if (level_merge == 0)
+            {
+                mid = left + (right - left) / 2;
+            }
+
+            merge_dev(data, left, mid, right);
+
+            /* 
+                Fix since the two merged list are of two different dimension, because the offset is balanced between threads
+                Merge sort expects to have mid as maximum value of the first list
+            */
+            mid = right;
+        }
+        __syncthreads();
     }
 }
