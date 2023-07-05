@@ -56,12 +56,9 @@ bool is_sorted(unsigned short *result, const unsigned long long N)
     {
         if (result[i] > result[i + 1])
         {
-            // printf("Check failed: data[%llu] = %hu, data[%llu] = %hu\n", i, result[i], i + 1, result[i + 1]);
-            // printf("%hu is greater than %hu\n", result[i], result[i + 1]);
             return false;
         }
     }
-    // printf("Check OK\n");
     return true;
 }
 
