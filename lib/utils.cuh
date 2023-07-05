@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
 #include <cuda_runtime.h>
 #include "../lib/constants.cuh"
@@ -42,9 +43,9 @@ void init_array(unsigned short *data, const unsigned long long N);
 __host__ void print_array(const unsigned short *data, const unsigned long long N);
 
 /*
-    Function that checks if the array is ordered
+    Function that checks if the array is sorted
 */
-int check_result(unsigned short *result, const unsigned long long N);
+bool is_sorted(unsigned short *result, const unsigned long long N);
 
 /* 
     Function to check if x is a power of 2
@@ -54,9 +55,14 @@ bool is_power_of_two(const unsigned long x);
 /*
     Function that finds the maximum number in an array
 */
-__device__ void get_max(unsigned short *data, const unsigned long long N, unsigned short *max);
+__host__ __device__ void get_max(unsigned short *data, const unsigned long long N, unsigned short *max);
 
 /*
     Function useful to compute the base to the power of exp
 */
 __device__ void power(unsigned base, unsigned exp, unsigned *result);
+
+/*
+    Function that prints the statistics of the algorithms
+*/
+void print_table(int n_algorithms, char algorithms[][100], char machine[][100], bool correctness[], double elapsed_time[]);

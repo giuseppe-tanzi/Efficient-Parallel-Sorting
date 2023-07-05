@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <math.h>
 #include <cuda.h>
 #include <assert.h>
@@ -11,6 +12,15 @@
 
 int main(int argc, char *argv[])
 {
+    unsigned short n_algorithms = 3;
+    char algorithms[][100] = {"Sequential Radix Sort", 
+                            "Sequential Merge Sort", 
+                            "Parallel Radix Sort + Merge Sort \\w global"};
+                            // "Parallel Radix Sort + Merge Sort '\w shared\t(GPU)"};
+    char machine[][100] = {"CPU", "CPU", "GPU"};
+    bool correctness[n_algorithms];
+    double elapsed_time[n_algorithms];
+
     unsigned long long N = 512;
     unsigned short *a, *dev_a;
 
@@ -34,19 +44,26 @@ int main(int argc, char *argv[])
     a = (unsigned short *)malloc(size_array);
     cudaHandleError(cudaMalloc((void **)&dev_a, size_array));
 
-    // Sequential sorting
+    // Sequential sorting with Radix Sort
     printf("Sort algorithm on array of %llu elements\n\n", N);
-    printf("Sequential implementation:\n");
+    init_array(a, N);
+    t_start = get_time();
+    radix_sort(a, N);
+    t_stop = get_time();
+    correctness[0] = is_sorted(a, N);
+    elapsed_time[0] = t_stop - t_start;
+    bzero(a, size_array); // Erase destination buffer
+
+    // Sequential sorting with Merge Sort
     init_array(a, N);
     t_start = get_time();
     merge_sort(a, 0, N - 1);
-    t_stop = get_time();
-    check_result(a, N);
+    t_stop= get_time();
+    correctness[1] = is_sorted(a, N);
+    elapsed_time[1] = t_stop - t_start;
     bzero(a, size_array); // Erase destination buffer
-    printf("Elapsed time in seconds: %f\n\n", (t_stop - t_start));
 
     // Parallel sorting
-    printf("Parallel implementation:\n");
     init_array(a, N);
     cudaHandleError(cudaMemcpy(dev_a, a, size_array, cudaMemcpyHostToDevice));
 
@@ -90,15 +107,18 @@ int main(int argc, char *argv[])
     cudaHandleError(cudaPeekAtLastError());
     cudaHandleError(cudaMemcpy(a, dev_a, size_array, cudaMemcpyDeviceToHost));
 
-    check_result(a, N);
+    correctness[2] = is_sorted(a, N);
+    elapsed_time[2] = t_stop - t_start;
     bzero(a, size_array); // Erase destination buffer
 
-    printf("NUM_THREADS: %lu\n", sort_config.total_threads);
-    printf("NUM BLOCKS: %lu\n", sort_config.total_blocks);
-    printf("NUM THREAD PER BLOCK: %lu\n", sort_config.threads_per_block);
-    printf("NUM BLOCKS MERGE: %d\n", blocks_involved_in_merging);
-    printf("PARTITION SIZE: %llu\n", sort_config.partition_size);
-    printf("Elapsed time in seconds: %f\n\n", (t_stop - t_start));
+    // printf("NUM_THREADS: %lu\n", sort_config.total_threads);
+    // printf("NUM BLOCKS: %lu\n", sort_config.total_blocks);
+    // printf("NUM THREAD PER BLOCK: %lu\n", sort_config.threads_per_block);
+    // printf("NUM BLOCKS MERGE: %d\n", blocks_involved_in_merging);
+    // printf("PARTITION SIZE: %llu\n", sort_config.partition_size);
+
+    // Print the table
+    print_table(n_algorithms, algorithms, machine, correctness, elapsed_time);
 
     // Cleanup
     free(a);

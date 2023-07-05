@@ -143,7 +143,7 @@ __global__ void sort_kernel(unsigned short *data, const unsigned long long N, un
             levels_merge++;
         }
 
-        radix_sort(&data[start], offset);
+        radix_sort_dev(&data[start], offset);
         __syncthreads();
 
         // Merge - Phase

@@ -6,14 +6,24 @@
 #include "utils.cuh"
 
 /* 
-    Function to do counting sort of the data according to the digit represented by exp. 
+    Function to do counting sort of the data according to the digit represented by exp on GPU
 */
-__device__ void count_sort(unsigned short *data, const unsigned long long N, const unsigned exp);
+__device__ void count_sort_dev(unsigned short *data, const unsigned long long N, const unsigned exp);
 
 /* 
-    The main function to that sorts the data of size N using Radix Sort 
+    Function to do counting sort of the data according to the digit represented by exp on CPU
 */
-__device__ void radix_sort(unsigned short *data, const unsigned long long N);
+void count_sort(unsigned short *data, const unsigned long long N, const unsigned exp);
+
+/* 
+    The main function to that sorts the data of size N using Radix Sort on GPU
+*/
+__device__ void radix_sort_dev(unsigned short *data, const unsigned long long N);
+
+/* 
+    The main function to that sorts the data of size N using Radix Sort on CPU
+*/
+void radix_sort(unsigned short *data, const unsigned long long N);
 
 /* 
     Function to perform only the Radix Sort
