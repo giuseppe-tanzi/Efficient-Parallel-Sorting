@@ -59,24 +59,24 @@ int main(int argc, char *argv[])
     sort_config.gridSize = dim3(sort_config.total_blocks);
 
     /*
-        First I get how many sorted list I have at level 0
-        Then I divide by 2 to have the number of merge that I'm going to have at level 0
+        - First I get how many sorted list I have at level 0
+        - Then I divide by 2 to have the number of merge that I'm going to have at level 0
     */
     lists_to_merge = ceil(get_n_list_to_merge(N, sort_config.partition_size, sort_config.total_threads) / (float)2);
 
     /*
-        The number of blocks needed during the merging phase
+        - The number of blocks needed during the merging phase
     */
     blocks_involved_in_merging = ceil(lists_to_merge / (float)sort_config.threads_per_block);
     const size_t size_blocks = blocks_involved_in_merging * sort_config.threads_per_block * sizeof(unsigned long);
 
     /*
-        It contains the start index in the array for each block
+        - It contains the start index in the array for each block
     */
     block_starting_idx = (unsigned long long *)malloc(blocks_involved_in_merging * sizeof(unsigned long long));
 
     /*
-        It contains the size to handle in the data array for each block
+        - It contains the size to handle in the data array for each block
     */
     block_size = (unsigned long long *)malloc(blocks_involved_in_merging * sizeof(unsigned long long));
 
