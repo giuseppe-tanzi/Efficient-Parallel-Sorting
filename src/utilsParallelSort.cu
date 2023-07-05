@@ -141,9 +141,9 @@ __host__ __device__ void get_start_index_block(unsigned long long *block_startin
                 if ((N - size) > 0) // More threads than needed
                 {
                     /*
-                        Divide the remaining data (N) by the remananing threads
+                        - Divide the remaining data (N) by the remananing threads
+                        - ceil((N - start) / (total_threads - thread))
                     */
-                    // ceil((N - start_v) / (total_threads - thread))
                     size = (N - start + (total_threads - thread) - 1) / (total_threads - thread);
 
                     start += size;
@@ -182,6 +182,10 @@ __host__ __device__ void get_size_block(unsigned long long *block_size, const un
         {
             if ((N - size) > 0) // More threads than needed
             {
+                /*
+                    - Divide the remaining data (N) by the remananing threads
+                    - ceil((N - size) / (total_threads - thread))
+                */
                 offset = (N - size + (total_threads - thread) - 1) / (total_threads - thread);
                 size += offset;
                 if (((thread + 1) % multiplier) == 0)
@@ -230,9 +234,9 @@ __host__ void get_thread_offsets(unsigned long *offsets, const unsigned long lon
             if ((N - size) > 0) // More threads than needed
             {
                 /*
-                    Divide the remaining data (N) by the remananing threads
+                    - Divide the remaining data (N) by the remananing threads
+                    - ceil((N - size) / (total_threads - thread))
                 */
-                // ceil((N - size) / (total_threads - thread))
                 offset = (N - size + (total_threads - thread) - 1) / (total_threads - thread);
                 offsets[idx_tid] += offset;
                 size += offset;

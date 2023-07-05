@@ -5,8 +5,18 @@
 #include <cuda_runtime.h>
 #include "../lib/mergeSort.cuh"
 #include "../lib/radixSort.cuh"
-#include "../lib/parallelSort.cuh"
 #include "../lib/utils.cuh"
+
+// Structure to hold block and thread configurations
+struct ParallelSortConfig
+{
+    dim3 gridSize;
+    dim3 blockSize;
+    unsigned long long partition_size;
+    unsigned long total_threads;
+    unsigned long total_blocks;
+    unsigned long threads_per_block;
+};
 
 /*
     Ensures the minimum numbers of necessary thread
