@@ -192,7 +192,7 @@ __global__ void merge_kernel(unsigned short *data, const unsigned long *offset, 
     }
 }
 
-__global__ void merge_blocks_lists_kernel(unsigned short *data, unsigned long long N, ParallelSortConfig config, const unsigned total_threads)
+__global__ void merge_blocks_kernel(unsigned short *data, unsigned long long N, ParallelSortConfig config, const unsigned total_threads)
 {
     const unsigned tid = threadIdx.x;
     unsigned long long start = 0;

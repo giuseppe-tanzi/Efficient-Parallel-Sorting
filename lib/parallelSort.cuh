@@ -22,8 +22,8 @@ __global__ void sort_kernel(unsigned short *data, const unsigned long long N, un
 __global__ void merge_kernel(unsigned short *data, const unsigned long *offset, const unsigned long total_threads, const unsigned long total_threads_precedent_blocks);
 
 /*
-    - The merge_block_lists_kernel is a CUDA kernel for merging sorted array on one single block. 
+    - The merge_block_kernel is a CUDA kernel for merging sorted array on one single block. 
     - It performs a parallel merge sort on the data array using multiple threads on one single block.
     - The function merges the array in a hierarchical manner until the entire data array is sorted.
 */
-__global__ void merge_blocks_lists_kernel(unsigned short *data, unsigned long long N, ParallelSortConfig config, const unsigned total_threads);
+__global__ void merge_blocks_kernel(unsigned short *data, unsigned long long N, ParallelSortConfig config, const unsigned total_threads);
