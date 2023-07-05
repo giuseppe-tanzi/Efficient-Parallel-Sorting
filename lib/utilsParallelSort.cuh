@@ -29,15 +29,42 @@ ParallelSortConfig determine_config(const unsigned long long N);
 unsigned long get_n_list_to_merge(unsigned long long N, unsigned long long partition, unsigned long total_threads);
 
 /*
-    Function that is responsible for computing the starting index and size of data blocks for the parallel computation,
+    Function that compute the starting index of data blocks for the parallel computation,
     given a set of parameters:
-        - block_dimension: A pointer to an array of unsigned long integers representing the block dimensions. The starting index and size of each block will be stored in this array.
-        - offsets: A pointer to an array of unsigned long integers representing the offsets for each thread in each block. The offset for each thread will be accumulated in this array.
-        - N: An unsigned long integer representing the total number of elements in the data.
-        - partition: An unsigned integer representing the size of the partition.
+        - block_starting_idx: A pointer to an array representing the block starting idx. The starting index of each block will be stored in this array.
+        - N: An unsigned long long integer representing the total number of elements in the data.
         - total_blocks: An unsigned integer representing the total number of blocks.
-        - total_threads: An unsigned integer representing the total number of threads.
-    It operates on unsigned long integers and modifies two arrays: block_dimension and offsets.
-    It follows a recursive approach to distribute the workload evenly among the threads and blocks
+        - threads_per_block: An unsigned long integer representing the total number of threads per block.
+        - total_threads: An unsigned long integer representing the total number of threads.
+    It modifies the array block_starting_idx.
+    It follows a recursive approach to distribute the workload evenly among the threads and blocks.
 */
-__host__ __device__ void get_start_and_size(unsigned long long *block_dimension, unsigned long *offsets, unsigned long long N, unsigned long long partition, unsigned total_blocks, unsigned long total_threads);
+__host__ __device__ void get_start_index_block(unsigned long long *block_starting_idx, const unsigned long long N, const unsigned total_blocks, const unsigned long threads_per_block, const unsigned long total_threads);
+
+/*
+    Function that compute the size of data blocks for the parallel computation,
+    given a set of parameters:
+        - block_size: A pointer to an array representing the size of the array assigned to each block. The size of each block will be stored in this array.
+        - block_starting_idx: A pointer to an array representing the block starting idx.
+        - N: An unsigned long long integer representing the total number of elements in the data.
+        - total_blocks: An unsigned integer representing the total number of blocks.
+        - threads_per_block: An unsigned long integer representing the total number of threads per block.
+        - total_threads: An unsigned long integer representing the total number of threads.
+    It modifies the array block_size.
+    It follows a recursive approach to distribute the workload evenly among the threads and blocks.
+*/
+__host__ __device__ void get_size_block(unsigned long long *block_size, const unsigned long long *block_starting_idx, const unsigned long long N, const unsigned total_blocks, const unsigned long threads_per_block, const unsigned long total_threads);
+
+/*
+    Function that compute the offset for each thread of each block needed for the merging phase during the parallel computation,
+    given a set of parameters:
+        - offsets: A pointer to an array representing the offsets for each thread in each block. The offset for each thread will be accumulated in this array.
+        - block_starting_idx: A pointer to an array representing the block starting idx.
+        - N: An unsigned long long integer representing the total number of elements in the data.
+        - total_blocks: An unsigned integer representing the total number of blocks.
+        - threads_per_block: An unsigned long integer representing the total number of threads per block.
+        - total_threads: An unsigned long integer representing the total number of threads.
+    It modifies the array offsets.
+    It follows a recursive approach to distribute the workload evenly among the threads and blocks.
+*/
+void get_thread_offsets(unsigned long *offsets, const unsigned long long *block_starting_idx, const unsigned long long N, const unsigned total_blocks, const unsigned long threads_per_block, const unsigned long total_threads);

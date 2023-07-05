@@ -97,6 +97,9 @@ unsigned long get_n_list_to_merge(unsigned long long N, unsigned long long parti
     {
         if ((N - offset) > 0)
         {
+            /*
+                Divide the remaining data (N) by the remananing threads
+            */
             offset += ceil((N - offset) / (total_threads - thread));
             lists_to_merge++;
         }
@@ -109,52 +112,41 @@ unsigned long get_n_list_to_merge(unsigned long long N, unsigned long long parti
     return lists_to_merge;
 }
 
-__host__ __device__ void get_start_and_size(unsigned long long *block_dimension, unsigned long *offsets, unsigned long long N, unsigned long long partition, unsigned total_blocks, unsigned long total_threads)
+__host__ __device__ void get_start_index_block(unsigned long long *block_starting_idx, const unsigned long long N, const unsigned total_blocks, const unsigned long threads_per_block, const unsigned long total_threads)
 {
-    unsigned long long idx_start = 0;
-    unsigned long idx_size = 0;
-    unsigned idx_tid = 0; // Actual thread in the block
-
+    unsigned long long block = 0;
     unsigned long thread = 0;
-    unsigned num_blocks_sort = total_threads / (float)MAXTHREADSPERBLOCK;
+    unsigned num_blocks_sort = total_threads / (float)threads_per_block;
     unsigned multiplier = num_blocks_sort / (float)total_blocks;
-    unsigned long precedent_threads = multiplier * MAXTHREADSPERBLOCK;
-    unsigned current_block = 0;
+    unsigned long precedent_threads = multiplier * threads_per_block;
 
-    unsigned long long start_v = 0;
-    unsigned long size_v = 0;
-    unsigned long long offset = 0;
+    unsigned long long start = 0;
+    unsigned long size = 0;
 
-    // Initialization of the offset for each thread in each block
-    for (unsigned i = 0; i < total_blocks * MAXTHREADSPERBLOCK; i++)
+    for (block = 0; block < total_blocks; block++)
     {
-        offsets[i] = 0;
-    }
+        precedent_threads = multiplier * threads_per_block * block;
+        start = 0;
+        size = 0;
 
-    for (current_block = 0; current_block < total_blocks; current_block++)
-    {
-        precedent_threads = multiplier * MAXTHREADSPERBLOCK * current_block;
-        idx_start = current_block * 2;
-        idx_size = idx_start + 1;
-        idx_tid = current_block * MAXTHREADSPERBLOCK;
-        start_v = 0;
-        size_v = 0;
-
-        if (current_block == 0)
+        if (block == 0)
         {
-            start_v = 0;
+            start = 0;
         }
         else
         {
             // Compute start index in a recursive way
             for (thread = 0; thread < precedent_threads; thread++)
             {
-                if ((N - size_v) > 0) // More threads than needed
+                if ((N - size) > 0) // More threads than needed
                 {
+                    /*
+                        Divide the remaining data (N) by the remananing threads
+                    */
                     // ceil((N - start_v) / (total_threads - thread))
-                    size_v = (N - start_v + (total_threads - thread) - 1) / (total_threads - thread);
+                    size = (N - start + (total_threads - thread) - 1) / (total_threads - thread);
 
-                    start_v += size_v;
+                    start += size;
                 }
                 else
                 {
@@ -162,20 +154,36 @@ __host__ __device__ void get_start_and_size(unsigned long long *block_dimension,
                 }
             }
         }
+        block_starting_idx[block] = start;
+    }
+}
 
-        block_dimension[idx_start] = start_v;
+__host__ __device__ void get_size_block(unsigned long long *block_size, const unsigned long long *block_starting_idx, const unsigned long long N, const unsigned total_blocks, const unsigned long threads_per_block, const unsigned long total_threads)
+{
+    unsigned long long block = 0;
+    unsigned idx_tid = 0; // Actual thread in the block
 
-        size_v = start_v;
+    unsigned long thread = 0;
+    unsigned num_blocks_sort = total_threads / (float)threads_per_block;
+    unsigned multiplier = num_blocks_sort / (float)total_blocks;
+    unsigned long precedent_threads = multiplier * threads_per_block;
+
+    unsigned long long offset = 0;
+    unsigned long size = 0;
+
+    for (block = 0; block < total_blocks; block++)
+    {
+        precedent_threads = multiplier * threads_per_block * block;
+        idx_tid = block * threads_per_block;
+        size = block_starting_idx[block];
 
         // Compute size block in a recursive way
-        for (thread = precedent_threads; thread < (current_block + 1) * MAXTHREADSPERBLOCK * multiplier; thread++)
+        for (thread = precedent_threads; thread < (block + 1) * threads_per_block * multiplier; thread++)
         {
-            if ((N - size_v) > 0) // More threads than needed
+            if ((N - size) > 0) // More threads than needed
             {
-                // ceil((N - size_v) / (total_threads - thread))
-                offset = (N - size_v + (total_threads - thread) - 1) / (total_threads - thread);
-                size_v += offset;
-                offsets[idx_tid] += offset;
+                offset = (N - size + (total_threads - thread) - 1) / (total_threads - thread);
+                size += offset;
                 if (((thread + 1) % multiplier) == 0)
                 {
                     idx_tid++;
@@ -187,6 +195,56 @@ __host__ __device__ void get_start_and_size(unsigned long long *block_dimension,
             }
         }
 
-        block_dimension[idx_size] = size_v - start_v;
+        block_size[block] = size - block_starting_idx[block];
+    }
+}
+
+__host__ void get_thread_offsets(unsigned long *offsets, const unsigned long long *block_starting_idx, const unsigned long long N, const unsigned total_blocks, const unsigned long threads_per_block, const unsigned long total_threads)
+{
+    unsigned long long block = 0;
+    unsigned idx_tid = 0; // Actual thread in the block
+
+    unsigned long thread = 0;
+    unsigned num_blocks_sort = total_threads / (float)threads_per_block;
+    unsigned multiplier = num_blocks_sort / (float)total_blocks;
+    unsigned long precedent_threads = multiplier * threads_per_block;
+
+    unsigned long size = 0;
+    unsigned long long offset = 0;
+
+    // Initialization of the offset for each thread in each block
+    for (unsigned i = 0; i < total_blocks * threads_per_block; i++)
+    {
+        offsets[i] = 0;
+    }
+
+    for (block = 0; block < total_blocks; block++)
+    {
+        precedent_threads = multiplier * threads_per_block * block;
+        idx_tid = block * threads_per_block;
+        size = block_starting_idx[block];
+
+        // Compute size block in a recursive way
+        for (thread = precedent_threads; thread < (block + 1) * threads_per_block * multiplier; thread++)
+        {
+            if ((N - size) > 0) // More threads than needed
+            {
+                /*
+                    Divide the remaining data (N) by the remananing threads
+                */
+                // ceil((N - size) / (total_threads - thread))
+                offset = (N - size + (total_threads - thread) - 1) / (total_threads - thread);
+                offsets[idx_tid] += offset;
+                size += offset;
+                if (((thread + 1) % multiplier) == 0)
+                {
+                    idx_tid++;
+                }
+            }
+            else
+            {
+                break;
+            }
+        }
     }
 }
