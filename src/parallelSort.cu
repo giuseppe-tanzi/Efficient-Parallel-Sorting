@@ -1,5 +1,75 @@
 #include "../lib/parallelSort.cuh"
 
+void parallel_sort(unsigned short *dev_a,
+                   const unsigned long long N,
+                   ParallelSortConfig config,
+                   const size_t size_blocks,
+                   const unsigned blocks_involved_in_merging,
+                   unsigned long long *block_starting_idx,
+                   unsigned long long *block_size,
+                   unsigned long *thread_offset,
+                   unsigned long *dev_thread_offset)
+{
+
+    if (config.total_blocks == 1)
+    {
+        /*
+            - Compute the radix sort phase and the merging sort phase in the same kernel
+        */
+        sort_kernel<<<config.gridSize, config.blockSize>>>(dev_a, N, config.partition_size, config.total_threads); // GLOBAL MEMORY
+    }
+    else
+    {
+        /*
+            - Compute the sorting in two different phase
+        */
+
+        /*
+            - The radix sort is computed on the entire array with the all necessary blocks
+        */
+        radix_sort_kernel<<<config.gridSize, config.blockSize>>>(dev_a, N, config.partition_size, config.total_threads); // GLOBAL MEMORY; TODO: here I could use shared memory with size equal to partition_size
+        cudaHandleError(cudaDeviceSynchronize());
+        cudaHandleError(cudaPeekAtLastError());
+
+        /*
+            - Compute the start index on the data array for each block
+            - Compute the offset on the data array to handle for each thread of each needed block
+            - Compute the size of the data array to handle for each block
+        */
+        get_start_index_block(block_starting_idx, N, blocks_involved_in_merging, config.threads_per_block, config.total_threads);
+        get_thread_offsets(thread_offset, block_starting_idx, N, blocks_involved_in_merging, config.threads_per_block, config.total_threads);
+        get_size_block(block_size, block_starting_idx, N, blocks_involved_in_merging, config.threads_per_block, config.total_threads);
+
+        cudaHandleError(cudaMemcpy(dev_thread_offset, thread_offset, size_blocks, cudaMemcpyHostToDevice));
+
+        /*
+            - The merging phase is computed using a different number of blocks, since the number of necessary threads is smaller
+            - By doing so all the threads in each block performs a merge during the first level of the merging phase
+            - Then, the sorting is called on only one block in order to sort all the portion of array sorted by each block
+        */
+        /*
+            - It calls the merge kernel on each block
+            - Each block has a defined portion of the array to handle and a precise number of lists to merge
+            - The array will have blocks_involved_in_merging lists to merge at the end of the for-loop
+        */
+        for (unsigned block = 0; block < blocks_involved_in_merging; block++)
+        {
+
+            // TODO: SICURO SI PUò USARE SHARED MEMORY SUGLI OFFSET
+            merge_kernel<<<1, config.blockSize>>>(dev_a + block_starting_idx[block], dev_thread_offset, config.threads_per_block, block * config.threads_per_block); // GLOBAL MEMORY;
+        }
+        
+        /*
+            - It performs the last merging phase with only one block since the number of lists to sort are surely
+              less than the maximum thread number for each block
+        */
+        if (blocks_involved_in_merging > 1)
+        {
+            merge_blocks_kernel<<<1, blocks_involved_in_merging / 2>>>(dev_a, N, config, blocks_involved_in_merging / 2); // GLOBAL MEMORY;
+        }
+    }
+}
+
 __global__ void sort_kernel(unsigned short *data, const unsigned long long N, unsigned long long offset, const unsigned long total_threads)
 {
     const unsigned long tid = blockIdx.x * blockDim.x + threadIdx.x;
