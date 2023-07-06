@@ -85,6 +85,9 @@ ParallelSortConfig determine_config(const unsigned long long N)
         }
     }
 
+    config.required_shared_memory = N * sizeof(unsigned short) / config.total_blocks;
+    cudaDeviceGetAttribute(&config.max_shared_memory_per_block, cudaDevAttrMaxSharedMemoryPerBlock, 0);
+
     return config;
 }
 

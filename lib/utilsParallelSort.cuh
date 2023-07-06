@@ -16,6 +16,8 @@ struct ParallelSortConfig
     unsigned long total_threads;
     unsigned long total_blocks;
     unsigned long threads_per_block;
+    size_t required_shared_memory;
+    int max_shared_memory_per_block;
 };
 
 /*
