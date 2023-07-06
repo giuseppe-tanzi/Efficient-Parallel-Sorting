@@ -93,7 +93,7 @@ __device__ void power(unsigned base, unsigned exp, unsigned *result)
     }
 }
 
-void print_table(int n_algorithms, char algorithms[][100], char machine[][100], unsigned long threads[], bool correctness[], double elapsed_time[])
+void print_table(int n_algorithms, char algorithms[][100], char machine[][4], unsigned long threads[], bool correctness[], double elapsed_time[])
 {
     char correct[4];
 

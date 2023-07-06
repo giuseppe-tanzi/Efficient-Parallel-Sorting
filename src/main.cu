@@ -16,8 +16,8 @@ int main(int argc, char *argv[])
     char algorithms[][100] = {"Sequential Radix Sort", 
                             "Sequential Merge Sort", 
                             "Parallel Radix Sort + Merge Sort \\w global"};
-                            // "Parallel Radix Sort + Merge Sort '\w shared\t(GPU)"};
-    char machine[][100] = {"CPU", "CPU", "GPU"};
+                            // "Parallel Radix Sort + Merge Sort \\w shared"};
+    char machine[][4] = {"CPU", "CPU", "GPU"};
     unsigned long threads[n_algorithms];
     bool correctness[n_algorithms];
     double elapsed_time[n_algorithms];
