@@ -18,6 +18,7 @@ int main(int argc, char *argv[])
                             "Parallel Radix Sort + Merge Sort \\w global"};
                             // "Parallel Radix Sort + Merge Sort '\w shared\t(GPU)"};
     char machine[][100] = {"CPU", "CPU", "GPU"};
+    unsigned long threads[n_algorithms];
     bool correctness[n_algorithms];
     double elapsed_time[n_algorithms];
 
@@ -50,6 +51,7 @@ int main(int argc, char *argv[])
     t_start = get_time();
     radix_sort(a, N);
     t_stop = get_time();
+    threads[0] = 1;
     correctness[0] = is_sorted(a, N);
     elapsed_time[0] = t_stop - t_start;
     bzero(a, size_array); // Erase destination buffer
@@ -59,6 +61,7 @@ int main(int argc, char *argv[])
     t_start = get_time();
     merge_sort(a, 0, N - 1);
     t_stop= get_time();
+    threads[1] = 1;
     correctness[1] = is_sorted(a, N);
     elapsed_time[1] = t_stop - t_start;
     bzero(a, size_array); // Erase destination buffer
@@ -107,6 +110,7 @@ int main(int argc, char *argv[])
     cudaHandleError(cudaPeekAtLastError());
     cudaHandleError(cudaMemcpy(a, dev_a, size_array, cudaMemcpyDeviceToHost));
 
+    threads[2] = sort_config.total_threads;
     correctness[2] = is_sorted(a, N);
     elapsed_time[2] = t_stop - t_start;
     bzero(a, size_array); // Erase destination buffer
@@ -118,7 +122,7 @@ int main(int argc, char *argv[])
     // printf("PARTITION SIZE: %llu\n", sort_config.partition_size);
 
     // Print the table
-    print_table(n_algorithms, algorithms, machine, correctness, elapsed_time);
+    print_table(n_algorithms, algorithms, machine, threads, correctness, elapsed_time);
 
     // Cleanup
     free(a);

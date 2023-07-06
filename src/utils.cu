@@ -93,15 +93,15 @@ __device__ void power(unsigned base, unsigned exp, unsigned *result)
     }
 }
 
-void print_table(int n_algorithms, char algorithms[][100], char machine[][100], bool correctness[], double elapsed_time[])
+void print_table(int n_algorithms, char algorithms[][100], char machine[][100], unsigned long threads[], bool correctness[], double elapsed_time[])
 {
     char correct[4];
 
     // Print the table headers
-    printf("%-50s %-10s %-10s %-15s\n", "Algorithm", "Machine", "Correct", "Elapsed Time");
+    printf("%-50s %-12s %-15s %-10s %-15s\n", "Algorithm", "Machine", "N. Threads", "Correct", "Elapsed Time");
 
     // Print a line separator after the headers
-    printf("-------------------------------------------------- ---------- ---------- ---------------\n");
+    printf("-------------------------------------------------- -----------  --------------- ---------- ---------------\n");
 
     // Print each row of the table
     for (int i = 0; i < n_algorithms; i++)
@@ -110,7 +110,7 @@ void print_table(int n_algorithms, char algorithms[][100], char machine[][100], 
             strcpy(correct, "YES");
         else
             strcpy(correct, "NO");
-        printf("%-50s %-10s %-10s %-15lf\n", algorithms[i], machine[i], correct, elapsed_time[i]);
+        printf("%-50s %-12s %-15lu %-10s %-15lf\n", algorithms[i], machine[i], threads[i], correct, elapsed_time[i]);
     }
     printf("\n\n");
 }

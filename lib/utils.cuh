@@ -65,4 +65,4 @@ __device__ void power(unsigned base, unsigned exp, unsigned *result);
 /*
     Function that prints the statistics of the algorithms
 */
-void print_table(int n_algorithms, char algorithms[][100], char machine[][100], bool correctness[], double elapsed_time[]);
+void print_table(int n_algorithms, char algorithms[][100], char machine[][100], unsigned long threads[], bool correctness[], double elapsed_time[]);
