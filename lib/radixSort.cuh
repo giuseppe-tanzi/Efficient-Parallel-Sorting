@@ -8,7 +8,7 @@
 /* 
     Function to do counting sort of the data according to the digit represented by exp on GPU
 */
-__device__ void count_sort_dev(unsigned short *data, const unsigned long long N, const unsigned exp);
+__device__ void count_sort_gpu(unsigned short *data, const unsigned long long N, const unsigned exp);
 
 /* 
     Function to do counting sort of the data according to the digit represented by exp on CPU
@@ -18,7 +18,7 @@ void count_sort(unsigned short *data, const unsigned long long N, const unsigned
 /* 
     The main function to that sorts the data of size N using Radix Sort on GPU
 */
-__device__ void radix_sort_dev(unsigned short *data, const unsigned long long N);
+__device__ void radix_sort_gpu(unsigned short *data, const unsigned long long N);
 
 /* 
     The main function to that sorts the data of size N using Radix Sort on CPU

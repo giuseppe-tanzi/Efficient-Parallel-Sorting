@@ -1,6 +1,6 @@
 #include "../lib/radixSort.cuh"
 
-__device__ void count_sort_dev(unsigned short *data, const unsigned long long N, const unsigned exp)
+__device__ void count_sort_gpu(unsigned short *data, const unsigned long long N, const unsigned exp)
 {
     unsigned short *result;
     long long i;
@@ -72,7 +72,7 @@ void count_sort(unsigned short *data, const unsigned long long N, const unsigned
     free(result);
 }
 
-__device__ void radix_sort_dev(unsigned short *data, const unsigned long long N)
+__device__ void radix_sort_gpu(unsigned short *data, const unsigned long long N)
 {
     // Find the maximum number to know number of digits
     unsigned short m = 0;
@@ -82,7 +82,7 @@ __device__ void radix_sort_dev(unsigned short *data, const unsigned long long N)
     // exp is 10^i where i is current digit number
     for (unsigned exp = 1; m / exp > 0; exp *= 10)
     {
-        count_sort_dev(data, N, exp);
+        count_sort_gpu(data, N, exp);
     }
 }
 
@@ -147,6 +147,6 @@ __global__ void radix_sort_kernel(unsigned short *data, const unsigned long long
     // More threads than needed
     if ((N - old_offset) > 0) 
     {
-        radix_sort_dev(&data[start], offset);
+        radix_sort_gpu(&data[start], offset);
     }
 }

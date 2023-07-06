@@ -15,7 +15,7 @@ __host__ void gpuAssert(cudaError_t code, const char *file, int line, bool abort
 /*
     Useful to check errors in the cuda kernels on GPU
 */
-__device__ void gpuAssert_dev(cudaError_t code, const char *file, int line, bool abort);
+__device__ void gpuAssert_gpu(cudaError_t code, const char *file, int line, bool abort);
 
 /*
     Useful to check errors in the cuda kernels on CPU
@@ -25,7 +25,7 @@ __device__ void gpuAssert_dev(cudaError_t code, const char *file, int line, bool
 /*
     Useful to check errors in the cuda kernels on GPU
 */
-#define cudaHandleErrorGPU(ans) gpuAssert_dev((ans), __FILE__, __LINE__, true)
+#define cudaHandleErrorGPU(ans) gpuAssert_gpu((ans), __FILE__, __LINE__, true)
 
 /*
     Function that returns the current time

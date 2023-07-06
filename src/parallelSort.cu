@@ -143,7 +143,7 @@ __global__ void sort_kernel(unsigned short *data, const unsigned long long N, un
             levels_merge++;
         }
 
-        radix_sort_dev(&data[start], offset);
+        radix_sort_gpu(&data[start], offset);
         __syncthreads();
 
         // Merge - Phase
@@ -183,7 +183,7 @@ __global__ void sort_kernel(unsigned short *data, const unsigned long long N, un
 
                 right = left + offset_merge - 1;
 
-                merge_dev(data, left, mid, right);
+                merge_gpu(data, left, mid, right);
 
                 /*
                     - Merge sort expects to have mid as maximum value of the first list
@@ -250,7 +250,7 @@ __global__ void merge_kernel(unsigned short *data, const unsigned long *offset, 
                 mid = left + (right - left) / 2;
             }
 
-            merge_dev(data, left, mid, right);
+            merge_gpu(data, left, mid, right);
 
             /* 
                 - Fix since the two merged list are of two different dimension, because the offset is balanced between threads
@@ -347,7 +347,7 @@ __global__ void merge_blocks_kernel(unsigned short *data, unsigned long long N, 
 
             right = left + offset_merge - 1;
 
-            merge_dev(data, left, mid, right);
+            merge_gpu(data, left, mid, right);
 
             /*
                 - Fix since the two merged list are of two different dimension, because the offset is balanced between threads.

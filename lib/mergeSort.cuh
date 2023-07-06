@@ -13,7 +13,7 @@ void merge(unsigned short *data, const unsigned long long left, const unsigned l
 /* 
     Merge function of the MergeSort Algorithm to run on GPU
 */
-__device__ void merge_dev(unsigned short *data, const unsigned long long left, const unsigned long long mid, const unsigned long long right);
+__device__ void merge_gpu(unsigned short *data, const unsigned long long left, const unsigned long long mid, const unsigned long long right);
 
 /* 
     Merge Sort Algorithm 

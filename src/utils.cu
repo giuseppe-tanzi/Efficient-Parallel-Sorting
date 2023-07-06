@@ -10,7 +10,7 @@ void gpuAssert(cudaError_t code, const char *file, int line, bool abort)
     }
 }
 
-__device__ void gpuAssert_dev(cudaError_t code, const char *file, int line, bool abort)
+__device__ void gpuAssert_gpu(cudaError_t code, const char *file, int line, bool abort)
 {
     if (code != cudaSuccess)
     {

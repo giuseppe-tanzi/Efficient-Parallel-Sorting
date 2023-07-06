@@ -61,7 +61,7 @@ void merge(unsigned short *data, const unsigned long long left, const unsigned l
     free(temp_right);
 }
 
-__device__ void merge_dev(unsigned short *data, const unsigned long long left, const unsigned long long mid, const unsigned long long right)
+__device__ void merge_gpu(unsigned short *data, const unsigned long long left, const unsigned long long mid, const unsigned long long right)
 {
     unsigned long long i, j, k;
     unsigned long long dim_left = mid - left + 1;
