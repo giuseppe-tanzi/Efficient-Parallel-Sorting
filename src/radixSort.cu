@@ -206,7 +206,7 @@ __global__ void radix_sort_kernel_shared(unsigned short *data, const unsigned lo
     }
 
     /*
-        - Copy the data into the shared memory
+        - Copy the data to the shared memory
         - Each block has a different shared memory, so each thread will have a different start in the shared memory
     */
     for (unsigned long long i = 0; i < offset; i++)
