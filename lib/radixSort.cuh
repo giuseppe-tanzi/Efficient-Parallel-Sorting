@@ -29,3 +29,8 @@ void radix_sort(unsigned short *data, const unsigned long long N);
     Function to perform only the Radix Sort
 */
 __global__ void radix_sort_kernel(unsigned short *data, const unsigned long long N, unsigned long long offset, const unsigned long total_threads);
+
+/*
+    Function to perform only the Radix Sort using the shared memory
+*/
+__global__ void radix_sort_kernel_shared(unsigned short *data, const unsigned long long N, unsigned long long offset, const unsigned long total_threads);

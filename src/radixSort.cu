@@ -6,7 +6,7 @@ __device__ void count_sort_gpu(unsigned short *data, const unsigned long long N,
     long long i;
     int count[10] = {0};
 
-    cudaHandleErrorGPU(cudaMalloc((void**)&result, N * sizeof(unsigned short))); 
+    cudaHandleErrorGPU(cudaMalloc((void **)&result, N * sizeof(unsigned short)));
 
     // Store count of occurrences in count[]
     for (i = 0; i < N; i++)
@@ -78,7 +78,7 @@ __device__ void radix_sort_gpu(unsigned short *data, const unsigned long long N)
     unsigned short m = 0;
     get_max(data, N, &m);
 
-    // Do counting sort for every digit. Note that instead of passing digit number, exp is passed. 
+    // Do counting sort for every digit. Note that instead of passing digit number, exp is passed.
     // exp is 10^i where i is current digit number
     for (unsigned exp = 1; m / exp > 0; exp *= 10)
     {
@@ -92,7 +92,7 @@ void radix_sort(unsigned short *data, const unsigned long long N)
     unsigned short m = 0;
     get_max(data, N, &m);
 
-    // Do counting sort for every digit. Note that instead of passing digit number, exp is passed. 
+    // Do counting sort for every digit. Note that instead of passing digit number, exp is passed.
     // exp is 10^i where i is current digit number
     for (unsigned exp = 1; m / exp > 0; exp *= 10)
     {
@@ -145,8 +145,86 @@ __global__ void radix_sort_kernel(unsigned short *data, const unsigned long long
     }
 
     // More threads than needed
-    if ((N - old_offset) > 0) 
+    if ((N - old_offset) > 0)
     {
         radix_sort_gpu(&data[start], offset);
+    }
+}
+
+__global__ void radix_sort_kernel_shared(unsigned short *data, const unsigned long long N, unsigned long long offset, const unsigned long total_threads)
+{
+    extern __shared__ unsigned short shared_data[];
+
+    const unsigned long tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    // Variables useful to compute the portion of array for each thread
+    unsigned long long start = threadIdx.x * offset;
+    unsigned long long shared_start = threadIdx.x * offset;
+    unsigned long long old_offset = 0;
+    unsigned long precedent_thread = 0;
+
+    // Compute new start, end and offset for the thread, computing the offset of precedent threads
+    if (tid != 0)
+    {
+        // Compute old offset in a recursive way, in order to compute the start for the current thread
+        if (threadIdx.x - 1 == 0 && blockIdx.x == 0)
+        {
+            shared_start = tid * offset;
+        }
+        else
+        {
+            shared_start = offset;
+            old_offset = offset;
+            for (precedent_thread = 1; precedent_thread < tid; precedent_thread++)
+            {
+                shared_start += (N - old_offset + (total_threads - precedent_thread) - 1) / (total_threads - precedent_thread);
+                /*
+                    This if-else is useful if there are more thread than needed:
+                        - Ensures that no necessary threads remain in idle
+                */
+                if ((N - old_offset) > 0)
+                {
+                    // ceil((N - old_offset/total_threads - prec_thread))
+                    old_offset += (N - old_offset + (total_threads - precedent_thread) - 1) / (total_threads - precedent_thread);
+                }
+                else
+                {
+                    break;
+                }
+
+                if (precedent_thread == (blockIdx.x * blockDim.x) - 1)
+                {
+                    shared_start = 0;
+                }
+            }
+
+            start = old_offset;
+        }
+
+        // ceil((N - old_offset) / (total_threads - tid))
+        offset = (N - old_offset + (total_threads - tid) - 1) / (total_threads - tid);
+    }
+
+    /*
+        - Copy the data into the shared memory
+        - Each block has a different shared memory, so each thread will have a different start in the shared memory
+    */
+    for (unsigned long long i = 0; i < offset; i++)
+    {
+        shared_data[shared_start + i] = data[start + i];
+    }
+
+    // More threads than needed
+    if ((N - old_offset) > 0)
+    {
+        radix_sort_gpu(&shared_data[shared_start], offset);
+    }
+
+    /*
+        Copy the data back to the global memory
+    */
+    for (unsigned long long i = 0; i < offset; i++)
+    {
+        data[start + i] = shared_data[shared_start + i];
     }
 }
