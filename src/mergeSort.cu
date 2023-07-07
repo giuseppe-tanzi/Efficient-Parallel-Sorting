@@ -70,9 +70,9 @@ __device__ void merge_gpu(unsigned short *data, const unsigned long long left, c
     unsigned short *temp_right;
 
     /* Create temp arrays */
-    cudaHandleErrorGPU(cudaMalloc((void**)&temp_left, dim_left * sizeof(unsigned short))); 
-    cudaHandleErrorGPU(cudaMalloc((void**)&temp_right, dim_right * sizeof(unsigned short)));
-    
+    cudaHandleErrorGPU(cudaMalloc((void **)&temp_left, dim_left * sizeof(unsigned short)));
+    cudaHandleErrorGPU(cudaMalloc((void **)&temp_right, dim_right * sizeof(unsigned short)));
+
     /* Copy data to temp arrays temp_left[] and temp_right[] */
     for (i = 0; i < dim_left; i++)
     {
