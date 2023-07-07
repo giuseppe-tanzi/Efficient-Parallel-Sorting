@@ -93,15 +93,16 @@ __device__ void power(unsigned base, unsigned exp, unsigned *result)
     }
 }
 
-void print_table(int n_algorithms, char algorithms[][100], char machine[][4], unsigned long threads[], bool correctness[], double elapsed_time[])
+void print_table(int n_algorithms, char algorithms[][100], char machine[][4], unsigned long threads[], bool used_shared[], bool correctness[], double elapsed_time[])
 {
     char correct[4];
+    char shared[4];
 
     // Print the table headers
-    printf("%-50s %-12s %-15s %-10s %-15s\n", "Algorithm", "Machine", "N. Threads", "Correct", "Elapsed Time");
+    printf("%-50s %-12s %-12s %-15s %-10s %-15s\n", "Algorithm", "Machine", "N. Threads", "Shared Memory", "Correct", "Elapsed Time");
 
     // Print a line separator after the headers
-    printf("-------------------------------------------------- -----------  --------------- ---------- ---------------\n");
+    printf("-------------------------------------------------- -----------  ------------ --------------- ---------- ---------------\n");
 
     // Print each row of the table
     for (int i = 0; i < n_algorithms; i++)
@@ -110,7 +111,13 @@ void print_table(int n_algorithms, char algorithms[][100], char machine[][4], un
             strcpy(correct, "YES");
         else
             strcpy(correct, "NO");
-        printf("%-50s %-12s %-15lu %-10s %-15lf\n", algorithms[i], machine[i], threads[i], correct, elapsed_time[i]);
+
+        if (used_shared[i])
+            strcpy(shared, "YES");
+        else
+            strcpy(shared, "NO");
+            
+        printf("%-50s %-12s %-12lu %-15s %-10s %-15lf\n", algorithms[i], machine[i], threads[i], shared, correct, elapsed_time[i]);
     }
     printf("\n\n");
 }
