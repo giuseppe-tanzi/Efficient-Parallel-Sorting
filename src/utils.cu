@@ -99,10 +99,10 @@ void print_table(int n_algorithms, char algorithms[][100], char machine[][4], un
     char shared[4];
 
     // Print the table headers
-    printf("%-50s %-12s %-12s %-15s %-10s %-15s\n", "Algorithm", "Machine", "N. Threads", "Shared Memory", "Correct", "Elapsed Time");
+    printf("%-46s %-8s %-10s %-13s %-7s %-15s\n", "Algorithm", "Machine", "N. Threads", "Shared Memory", "Correct", "Elapsed Time");
 
     // Print a line separator after the headers
-    printf("-------------------------------------------------- -----------  ------------ --------------- ---------- ---------------\n");
+    printf("---------------------------------------------- -------  ---------- ------------- ------- ------------\n");
 
     // Print each row of the table
     for (int i = 0; i < n_algorithms; i++)
@@ -117,7 +117,7 @@ void print_table(int n_algorithms, char algorithms[][100], char machine[][4], un
         else
             strcpy(shared, "NO");
             
-        printf("%-50s %-12s %-12lu %-15s %-10s %-15lf\n", algorithms[i], machine[i], threads[i], shared, correct, elapsed_time[i]);
+        printf("%-46s %-8s %-10lu %-13s %-7s %-15lf\n", algorithms[i], machine[i], threads[i], shared, correct, elapsed_time[i]);
     }
     printf("\n\n");
 }
