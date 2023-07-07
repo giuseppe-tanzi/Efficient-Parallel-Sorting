@@ -3,8 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <cuda_runtime.h>
-#include "../lib/mergeSort.cuh"
-#include "../lib/radixSort.cuh"
 #include "../lib/utils.cuh"
 
 // Structure to hold block and thread configurations
