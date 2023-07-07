@@ -201,8 +201,8 @@ __global__ void radix_sort_kernel_shared(unsigned short *data, const unsigned lo
             start = old_offset;
         }
 
-        // ceil((N - old_offset) / (total_threads - tid))
-        offset = (N - old_offset + (total_threads - tid) - 1) / (total_threads - tid);
+        // ceil((N - start) / (total_threads - tid))
+        offset = (N - start + (total_threads - tid) - 1) / (total_threads - tid);
     }
 
     /*
