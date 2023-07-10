@@ -23,7 +23,6 @@ bool parallel_sort(unsigned short *dev_a,
         {
             used_shared_memory = true;
             // Launch the kernel with the correct shared memory size
-            // printf("REQUIRED SHARED MEMORY: %lu\n", config.required_shared_memory);
             sort_kernel_shared<<<config.gridSize, config.blockSize, config.required_shared_memory>>>(dev_a, N, config.partition_size, config.total_threads);
         }
         else
