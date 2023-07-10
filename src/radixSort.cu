@@ -229,4 +229,5 @@ __global__ void radix_sort_kernel_shared(unsigned short *data, const unsigned lo
     }
 
     __syncthreads();
+    
 }
