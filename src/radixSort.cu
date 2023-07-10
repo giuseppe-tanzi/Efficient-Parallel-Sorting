@@ -227,4 +227,6 @@ __global__ void radix_sort_kernel_shared(unsigned short *data, const unsigned lo
     {
         data[start + i] = shared_data[shared_start + i];
     }
+
+    __syncthreads();
 }
