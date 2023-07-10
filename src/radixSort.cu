@@ -78,8 +78,10 @@ __device__ void radix_sort_gpu(unsigned short *data, const unsigned long long N)
     unsigned short m = 0;
     get_max(data, N, &m);
 
-    // Do counting sort for every digit. Note that instead of passing digit number, exp is passed.
-    // exp is 10^i where i is current digit number
+    /*
+        - Do counting sort for every digit. Note that instead of passing digit number, exp is passed.
+        - exp is 10^i where i is current digit number
+    */
     for (unsigned exp = 1; m / exp > 0; exp *= 10)
     {
         count_sort_gpu(data, N, exp);
@@ -92,8 +94,10 @@ void radix_sort(unsigned short *data, const unsigned long long N)
     unsigned short m = 0;
     get_max(data, N, &m);
 
-    // Do counting sort for every digit. Note that instead of passing digit number, exp is passed.
-    // exp is 10^i where i is current digit number
+    /*
+        - Do counting sort for every digit. Note that instead of passing digit number, exp is passed.
+        - exp is 10^i where i is current digit number
+    */
     for (unsigned exp = 1; m / exp > 0; exp *= 10)
     {
         count_sort(data, N, exp);
@@ -129,7 +133,9 @@ __global__ void radix_sort_kernel(unsigned short *data, const unsigned long long
                 */
                 if ((N - old_offset) > 0)
                 {
-                    // ceil((n - old_offset/total_threads - prec_thread))
+                    /*
+                        ceil((N - old_offset/total_threads - precedent_thread))
+                    */
                     old_offset += (N - old_offset + (total_threads - precedent_thread) - 1) / (total_threads - precedent_thread);
                 }
                 else
@@ -140,7 +146,9 @@ __global__ void radix_sort_kernel(unsigned short *data, const unsigned long long
             start = old_offset;
         }
 
-        // ceil((n - start) / (total_threads - tid))
+        /*
+            ceil((N - start) / (total_threads - tid))
+        */
         offset = (N - start + (total_threads - tid) - 1) / (total_threads - tid);
     }
 
@@ -184,7 +192,9 @@ __global__ void radix_sort_kernel_shared(unsigned short *data, const unsigned lo
                 */
                 if ((N - old_offset) > 0)
                 {
-                    // ceil((N - old_offset/total_threads - prec_thread))
+                    /*
+                        ceil((N - old_offset/total_threads - precedent_thread))
+                    */
                     old_offset += (N - old_offset + (total_threads - precedent_thread) - 1) / (total_threads - precedent_thread);
                 }
                 else
@@ -201,7 +211,9 @@ __global__ void radix_sort_kernel_shared(unsigned short *data, const unsigned lo
             start = old_offset;
         }
 
-        // ceil((N - start) / (total_threads - tid))
+        /*
+            ceil((N - start) / (total_threads - tid))
+        */
         offset = (N - start + (total_threads - tid) - 1) / (total_threads - tid);
     }
 

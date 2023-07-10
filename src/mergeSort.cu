@@ -171,7 +171,7 @@ __global__ void merge_kernel(unsigned short *data, const unsigned long *offset, 
     }
 
     /*
-        - Merge the sorted array
+        Merge the sorted array
     */
     for (level_merge = 0; level_merge <= levels_merge; level_merge++)
     {
@@ -272,7 +272,7 @@ __global__ void merge_blocks_kernel(unsigned short *data, unsigned long long N, 
     }
 
     /*
-        - Merge the sorted array
+        Merge the sorted array
     */
     for (level_merge = 0; level_merge <= levels_merge; level_merge++)
     {
@@ -385,7 +385,7 @@ __global__ void merge_blocks_kernel_shared(unsigned short *data, unsigned long l
     }
 
     /*
-        - Merge the sorted array
+        Merge the sorted array
     */
     for (level_merge = 0; level_merge <= levels_merge; level_merge++)
     {

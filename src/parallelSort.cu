@@ -155,7 +155,7 @@ __global__ void sort_kernel(unsigned short *data, const unsigned long long N, un
         }
 
         /*
-            - ceil((N - start) / (total_threads - tid))
+            ceil((N - start) / (total_threads - tid))
         */
         offset = (N - start + (total_threads - tid) - 1) / (total_threads - tid);
         end = start + offset - 1;

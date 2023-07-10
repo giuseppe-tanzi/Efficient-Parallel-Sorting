@@ -19,17 +19,8 @@ struct ParallelSortConfig
 };
 
 /*
-    Ensures the minimum numbers of necessary thread
-        - First branch: N is smaller or equal than the starting partition size of each thread
-            - Starting from the maximum number of thread needed (N), it checks that the number of threads is a power of two,
-                otherwise the merging phase will not work
-        - Second branch: N is greater than the starting partition size of each thread
-            - It checks that the number of necessary threads is smaller or equal than the number of threads for each block
-                and it computes the partition size
-            - If the number of necessary threads is smaller than the number of threads for each blocks,
-                it does the same thing of the first branch starting from the number of necessary thread
-            - Otherwise it computes the number of minimum blocks needed ensuring that the number of threads is a power of 2
-
+    Function that determines the configuration parameters for parallel sorting based on the input size N. 
+    It calculates the number of threads, blocks, partition size, and other parameters required for efficient parallel sorting.
 */
 ParallelSortConfig determine_config(const unsigned long long N);
 

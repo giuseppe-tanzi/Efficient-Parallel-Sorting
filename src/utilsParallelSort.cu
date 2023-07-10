@@ -7,6 +7,11 @@ ParallelSortConfig determine_config(const unsigned long long N)
 
     config.partition_size = PARTITION_SIZE;
 
+    /*
+        - N is smaller or equal than the starting partition size of each thread
+        - Starting from the maximum number of thread needed (N), it checks that the number of threads is a power of two,
+          otherwise the merging phase will not work
+    */
     if (N <= config.partition_size)
     {
         if (N <= MAXTHREADSPERBLOCK)
@@ -22,6 +27,14 @@ ParallelSortConfig determine_config(const unsigned long long N)
                     break;
                 }
             }
+
+            if (config.total_threads < WARPSIZE)
+            {
+                config.threads_per_block = WARPSIZE;
+                config.total_threads = WARPSIZE;
+                config.total_blocks = 1;
+                config.partition_size = ceil(N / (float)config.total_threads);
+            }
         }
         else
         {
@@ -31,10 +44,18 @@ ParallelSortConfig determine_config(const unsigned long long N)
             config.partition_size = ceil(N / (float)config.total_threads);
         }
     }
+    /*
+        - N is greater than the starting partition size of each thread
+        - It checks that the number of necessary threads is smaller or equal than the number of threads for each block
+          and it computes the partition size
+    */
     else
     {
         config.total_threads = ceil(N / (float)config.partition_size);
 
+        /*
+            Only one block needed
+        */
         if (config.total_threads <= MAXTHREADSPERBLOCK)
         {
             config.total_blocks = 1;
@@ -59,6 +80,10 @@ ParallelSortConfig determine_config(const unsigned long long N)
                 }
             }
         }
+
+        /*
+            More than one block needed
+        */
         else
         {
             config.threads_per_block = MAXTHREADSPERBLOCK;

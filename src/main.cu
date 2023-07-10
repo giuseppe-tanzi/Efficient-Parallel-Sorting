@@ -87,18 +87,18 @@ int main(int argc, char *argv[])
     lists_to_merge = ceil(get_n_list_to_merge(N, sort_config.partition_size, sort_config.total_threads) / (float)2);
 
     /*
-        - The number of blocks needed during the merging phase
+        The number of blocks needed during the merging phase
     */
     blocks_involved_in_merging = ceil(lists_to_merge / (float)sort_config.threads_per_block);
     const size_t size_blocks = blocks_involved_in_merging * sort_config.threads_per_block * sizeof(unsigned long);
 
     /*
-        - It contains the start index in the array for each block
+        It contains the start index in the array for each block
     */
     block_starting_idx = (unsigned long long *)malloc(blocks_involved_in_merging * sizeof(unsigned long long));
 
     /*
-        - It contains the size to handle in the data array for each block
+        It contains the size to handle in the data array for each block
     */
     block_size = (unsigned long long *)malloc(blocks_involved_in_merging * sizeof(unsigned long long));
 
@@ -107,7 +107,7 @@ int main(int argc, char *argv[])
 
     t_stop = get_time();
 
-    // Warm up
+    // Warm up call
     parallel_sort(dev_a, N, sort_config, size_blocks, blocks_involved_in_merging, block_starting_idx, block_size, thread_offset, dev_thread_offset, shared_memory);
     cudaDeviceSynchronize();
 
@@ -151,13 +151,7 @@ int main(int argc, char *argv[])
     elapsed_time[3] = t_stop - t_start + elaps_time_parallel_initialization;
     bzero(a, size_array); // Erase destination buffer
 
-    // printf("NUM_THREADS: %lu\n", sort_config.total_threads);
-    // printf("NUM BLOCKS: %lu\n", sort_config.total_blocks);
-    // printf("NUM THREAD PER BLOCK: %lu\n", sort_config.threads_per_block);
-    // printf("NUM BLOCKS MERGE: %d\n", blocks_involved_in_merging);
-    // printf("PARTITION SIZE: %llu\n", sort_config.partition_size);
-
-    // Print the table
+    // Print the statistics
     print_table(n_algorithms, algorithms, machine, threads, used_shared, correctness, elapsed_time);
 
     // Cleanup
