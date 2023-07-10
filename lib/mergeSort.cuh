@@ -5,18 +5,18 @@
 #include <cuda_runtime.h>
 #include "../lib/utilsParallelSort.cuh"
 
-/* 
-    Merge function of the MergeSort Algorithm 
+/*
+    Merge function of the MergeSort Algorithm
 */
 void merge(unsigned short *data, const unsigned long long left, const unsigned long long mid, const unsigned long long right);
 
-/* 
+/*
     Merge function of the MergeSort Algorithm to run on GPU
 */
 __device__ void merge_gpu(unsigned short *data, const unsigned long long left, const unsigned long long mid, const unsigned long long right);
 
-/* 
-    Merge Sort Algorithm 
+/*
+    Merge Sort Algorithm
 */
 __host__ void merge_sort(unsigned short *data, const unsigned long long left, const unsigned long long right);
 
@@ -32,3 +32,10 @@ __global__ void merge_kernel(unsigned short *data, const unsigned long *offset, 
     - The function merges the array in a hierarchical manner until the entire data array is sorted.
 */
 __global__ void merge_blocks_kernel(unsigned short *data, unsigned long long N, ParallelSortConfig config, const unsigned total_threads);
+
+/*
+    - The merge_block_kernel is a CUDA kernel for merging sorted array on one single block using the shared memory.
+    - It performs a parallel merge sort on the data array using multiple threads on one single block.
+    - The function merges the array in a hierarchical manner until the entire data array is sorted.
+*/
+__global__ void merge_blocks_kernel_shared(unsigned short *data, unsigned long long N, ParallelSortConfig config, const unsigned total_threads);

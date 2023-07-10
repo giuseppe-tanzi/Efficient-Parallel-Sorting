@@ -13,6 +13,7 @@ bool parallel_sort(unsigned short *dev_a,
 {
 
     bool used_shared_memory = false;
+    const size_t required_shared_memory_data = N * sizeof(unsigned long long);
 
     if (config.total_blocks == 1)
     {
@@ -87,7 +88,17 @@ bool parallel_sort(unsigned short *dev_a,
         */
         if (blocks_involved_in_merging > 1)
         {
-            merge_blocks_kernel<<<1, blocks_involved_in_merging / 2>>>(dev_a, N, config, blocks_involved_in_merging / 2);
+            if ((required_shared_memory_data <= config.max_shared_memory_per_block) && shared_memory == true)
+            {
+                used_shared_memory = true;
+
+                // Launch the kernel with the correct shared memory size
+                merge_blocks_kernel_shared<<<1, blocks_involved_in_merging / 2, required_shared_memory_data>>>(dev_a, N, config, blocks_involved_in_merging / 2);
+            }
+            else
+            {
+                merge_blocks_kernel<<<1, blocks_involved_in_merging / 2>>>(dev_a, N, config, blocks_involved_in_merging / 2);
+            }
         }
     }
 
