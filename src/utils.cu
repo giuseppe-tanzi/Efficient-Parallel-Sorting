@@ -116,7 +116,7 @@ void print_table(int n_algorithms, char algorithms[][100], char machine[][4], un
             strcpy(shared, "YES");
         else
             strcpy(shared, "NO");
-            
+
         printf("%-46s %-8s %-10lu %-13s %-7s %-15lf\n", algorithms[i], machine[i], threads[i], shared, correct, elapsed_time[i]);
     }
     printf("\n\n");
