@@ -20,14 +20,16 @@
             - Third step:
                 - Merge block phase, merging all the sorted partitions of the array sorted by each block.
 */
-void parallel_sort(unsigned short *dev_a, const unsigned long long N,
+bool parallel_sort(unsigned short *dev_a,
+                   const unsigned long long N,
                    ParallelSortConfig config,
                    const size_t size_blocks,
                    const unsigned blocks_involved_in_merging,
                    unsigned long long *block_starting_idx,
                    unsigned long long *block_size,
                    unsigned long *thread_offset,
-                   unsigned long *dev_thread_offset);
+                   unsigned long *dev_thread_offset,
+                   bool shared_memory);
 
 /*
     Entire sort kernel:
@@ -36,15 +38,10 @@ void parallel_sort(unsigned short *dev_a, const unsigned long long N,
 */
 __global__ void sort_kernel(unsigned short *data, const unsigned long long N, unsigned long long offset, const unsigned long n_threads);
 
-/*
-    - The merge_kernel function is a CUDA kernel that performs a merging phase of the merge sort on data in parallel using total threads on one block
-    - It divides the array into smaller ranges and merges them progressively until the entire array is sorted.
-*/
-__global__ void merge_kernel(unsigned short *data, const unsigned long *offset, const unsigned long total_threads, const unsigned long total_threads_precedent_blocks);
 
 /*
-    - The merge_block_kernel is a CUDA kernel for merging sorted array on one single block. 
-    - It performs a parallel merge sort on the data array using multiple threads on one single block.
-    - The function merges the array in a hierarchical manner until the entire data array is sorted.
+    Entire sort kernel copying the data to the shared memory:
+        1. Radix sort
+        2. Merge sort
 */
-__global__ void merge_blocks_kernel(unsigned short *data, unsigned long long N, ParallelSortConfig config, const unsigned total_threads);
+__global__ void sort_kernel_shared(unsigned short *data, const unsigned long long N, unsigned long long offset, const unsigned long n_threads);
