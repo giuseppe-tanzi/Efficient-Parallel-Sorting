@@ -47,7 +47,7 @@ __host__ void print_array(const unsigned short *data, const unsigned long long N
 */
 bool is_sorted(unsigned short *result, const unsigned long long N);
 
-/* 
+/*
     Function to check if x is a power of 2
 */
 bool is_power_of_two(const unsigned long x);

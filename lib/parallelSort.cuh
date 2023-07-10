@@ -38,7 +38,6 @@ bool parallel_sort(unsigned short *dev_a,
 */
 __global__ void sort_kernel(unsigned short *data, const unsigned long long N, unsigned long long offset, const unsigned long n_threads);
 
-
 /*
     Entire sort kernel copying the data to the shared memory:
         1. Radix sort
