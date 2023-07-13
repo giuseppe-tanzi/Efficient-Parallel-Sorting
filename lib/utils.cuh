@@ -66,3 +66,8 @@ __device__ void power(unsigned base, unsigned exp, unsigned *result);
     Function that prints the statistics of the algorithms
 */
 void print_table(int n_algorithms, char algorithms[][100], char machine[][4], unsigned long threads[], bool used_shared[], bool correctness[], double elapsed_time[]);
+
+/*
+    Function that write the statistics of the algorithms on a csv file
+*/
+void write_statistics_csv(int n, char algorithms[][100], double elapsed_times[]);

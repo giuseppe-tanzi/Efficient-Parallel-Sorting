@@ -37,10 +37,24 @@ int main(int argc, char *argv[])
     unsigned long *dev_thread_offset;
 
     double t_start = 0, t_stop = 0, elaps_time_parallel_initialization = 0;
+    bool write_output = false;
 
-    if (argc > 1)
+    for (int i = 1; i < argc; i++)
     {
-        N = atoi(argv[1]);
+        if (strcmp(argv[i], "-w") == 0)
+        {
+            write_output = true;
+        }
+        else
+        {
+            N = atoi(argv[i]);
+        }
+    }
+
+    if (N <= 0)
+    {
+        printf("Invalid array size.\n");
+        return 1;
     }
 
     const size_t size_array = N * sizeof(unsigned short);
@@ -160,6 +174,11 @@ int main(int argc, char *argv[])
     free(thread_offset);
     cudaHandleError(cudaFree(dev_thread_offset));
     cudaHandleError(cudaFree(dev_a));
+
+    if (write_output)
+    {
+        write_statistics_csv(N, algorithms, elapsed_time);
+    }
 
     return 0;
 }

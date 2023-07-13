@@ -121,3 +121,44 @@ void print_table(int n_algorithms, char algorithms[][100], char machine[][4], un
     }
     printf("\n\n");
 }
+
+void write_statistics_csv(int n, char algorithms[][100], double elapsed_times[])
+{
+    FILE *file = fopen("statistics.csv", "a");
+    if (file == NULL)
+    {
+        printf("Failed to open the file.\n");
+        return;
+    }
+
+    if (ftell(file) == 0)  // Check if the file is empty
+    {
+        // Write the header row with algorithm names
+        fprintf(file, "N,");
+        for (int i = 0; i < 4; i++)
+        {
+            fprintf(file, "%s", algorithms[i]);
+            // Add a comma for all columns except the last one
+            if (i < 3)
+                fprintf(file, ",");
+        }
+        fprintf(file, "\n"); // Move to the next row
+    }
+
+    fprintf(file, "%d,", n);
+
+    // Write the elapsed time for each algorithm
+    for (int i = 0; i < 4; i++)
+    {
+        fprintf(file, "%lf", elapsed_times[i]);
+
+        // Add a comma for all columns except the last one
+        if (i < 3)
+            fprintf(file, ",");
+    }
+    fprintf(file, "\n"); // Move to the next row
+
+    fclose(file);
+
+    printf("CSV file written successfully.\n\n");
+}
