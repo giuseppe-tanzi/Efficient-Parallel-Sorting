@@ -22,8 +22,6 @@ leverages the advantages of Radix Sort’s non-comparative nature and Merge Sort
 conquer strategy to achieve efficient parallel sorting. My solution builds upon the efficiency of Radix Sort by utilizing it as the base sorting algorithm
 within Merge Sort.
 
-Sure! Here's the usage section you can add to your README:
-
 ## Usage
 
 To compile the program, you need to have the NVIDIA CUDA Toolkit installed on your system. If you haven't installed it yet, please refer to the official documentation for installation instructions.
